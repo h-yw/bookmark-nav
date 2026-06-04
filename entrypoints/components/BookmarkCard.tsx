@@ -41,13 +41,23 @@ export function BookmarkCard({
   selected = false,
   onOpen,
 }: BookmarkCardProps) {
-  const favicon = getFaviconUrl(bookmark.url, faviconSource);
+  const [activeFaviconSource, setActiveFaviconSource] = useState(faviconSource);
   const [imgError, setImgError] = useState(false);
+  const favicon = getFaviconUrl(bookmark.url, activeFaviconSource);
   const compact = density === 'compact';
 
   useEffect(() => {
+    setActiveFaviconSource(faviconSource);
     setImgError(false);
-  }, [favicon]);
+  }, [bookmark.url, faviconSource]);
+
+  const handleImageError = () => {
+    if (activeFaviconSource === 'site') {
+      setActiveFaviconSource('duckduckgo');
+      return;
+    }
+    setImgError(true);
+  };
 
   const handleClick = () => {
     if (onOpen) {
@@ -79,7 +89,7 @@ export function BookmarkCard({
               src={favicon}
               alt=""
               className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-              onError={() => setImgError(true)}
+              onError={handleImageError}
             />
           ) : (
             <FallbackIcon />

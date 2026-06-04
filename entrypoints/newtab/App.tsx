@@ -112,6 +112,14 @@ export default function App() {
     saveSettings(nextSettings);
   };
 
+  const handleClearHistory = () => {
+    setHistory([]);
+    saveBookmarkHistory([]);
+    if (viewMode !== 'folder') {
+      setViewMode('folder');
+    }
+  };
+
   const handleWebSearch = (query: string) => {
     const url = SEARCH_URLS[settings.searchEngine](query);
     openUrl(url);
@@ -274,8 +282,10 @@ export default function App() {
       <SettingsDrawer
         open={settingsOpen}
         settings={settings}
+        historyCount={history.length}
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
+        onClearHistory={handleClearHistory}
       />
     </div>
   );

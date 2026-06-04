@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { BookmarkItem } from './types';
 import { BookmarkCard } from './BookmarkCard';
 import type { CardDensity, FaviconSource } from './settings';
@@ -46,6 +47,16 @@ export function BookmarkGrid({
   selectedBookmarkId = null,
   onOpenBookmark,
 }: BookmarkGridProps) {
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!selectedBookmarkId) return;
+    cardRefs.current[selectedBookmarkId]?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }, [selectedBookmarkId]);
+
   if (bookmarks.length === 0) {
     return <EmptyState isSearching={isSearching} />;
   }
@@ -55,6 +66,9 @@ export function BookmarkGrid({
       {bookmarks.map((b) => (
         <div
           key={b.id}
+          ref={(node) => {
+            cardRefs.current[b.id] = node;
+          }}
           className="shrink-0"
           style={{ width: CARD_WIDTH[density] }}
         >
