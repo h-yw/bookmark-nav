@@ -7,7 +7,7 @@
 - 框架：WXT 0.20+ (已初始化，React 模板)
 - UI：React 19 + Tailwind CSS v4
 - 语言：TypeScript
-- 图标：使用 `chrome://favicon/size/32@1x/{url}` 获取网站图标（扩展内可用，无限流）
+- 图标：使用 `chrome://favicon/size/32@2x/{origin}` 获取网站图标（扩展内可用，无限流，传 `new URL(url).origin`）
 
 ## 功能需求
 
@@ -61,31 +61,37 @@
 
 ### 样式要求
 - 使用 Tailwind CSS
-- 默认深色主题（深灰背景 #1a1a2e，卡片 #16213e）
+- 浅色主题（bg=#F6F5F3, sidebar=#FAFAF8, card=#FFFFFF, border=#E7E5E4）
 - 圆角卡片，hover 时微微放大 + 阴影
-- 搜索栏半透明毛玻璃效果
+- 搜索栏半透明毛玻璃效果（backdrop-blur）
 - 文件夹选中高亮
 
 ### 文件结构
 
 ```
 entrypoints/
-├── background.ts          # 已有，保持不动（或删除）
-├── content.ts             # 已有，删除
 ├── newtab/
 │   ├── index.html         # 新标签页入口
 │   ├── main.tsx           # React 挂载
-│   └── App.tsx            # 主组件
+│   ├── App.tsx            # 主组件
+│   └── style.css          # Tailwind 导入 + 骨架屏动画
 ├── popup/
-│   ├── index.html         # 弹窗入口（保留模板）
+│   ├── index.html         # 弹窗入口
 │   ├── main.tsx
-│   └── App.tsx
+│   ├── App.tsx
+│   └── style.css
 └── components/
+    ├── types.ts           # BookmarkItem, FolderNode, ViewMode 类型
+    ├── bookmarks.ts       # 书签树解析、过滤工具函数
+    ├── favicon.ts         # chrome://favicon URL 生成 + 缓存
+    ├── history.ts         # 书签打开历史（常用/最近）
+    ├── settings.ts        # 应用设置（localStorage 持久化）
+    ├── utils.ts           # simplifyUrl, openUrl 共享工具
     ├── Sidebar.tsx        # 文件夹侧边栏
     ├── BookmarkGrid.tsx   # 书签网格
     ├── BookmarkCard.tsx   # 单个书签卡片
-    ├── SearchBar.tsx      # 搜索栏
-    └── favicon.ts         # favicon URL 生成工具
+    ├── SearchBar.tsx      # 搜索栏（书签/网页双模式）
+    └── SettingsDrawer.tsx # 设置面板
 ```
 
 ### wxt.config.ts 配置
@@ -107,7 +113,8 @@ interface BookmarkItem {
   id: string;
   title: string;
   url: string;
-  folderPath: string[];  // ['书签栏', '常用工具']
+  folderPath: string[];    // ['书签栏', '常用工具']
+  folderIdPath: string[];  // ['1', '5'] — 按 ID 匹配，避免同名文件夹冲突
   dateAdded: number;
 }
 
@@ -117,11 +124,13 @@ interface FolderNode {
   children: FolderNode[];
   bookmarkCount: number;
 }
+
+type ViewMode = 'folder' | 'frequent' | 'recent';
 ```
 
 ### 注意事项
-- 用 `chrome://favicon/size/32@1x/{url}` 获取 favicon，不依赖外部 API
-- 书签可能有几千个，网格用 CSS grid，不做虚拟滚动（MVP 够用）
+- 用 `chrome://favicon/size/32@2x/{origin}` 获取 favicon，不依赖外部 API
+- 书签可能有几千个，网格用 flex-wrap 布局（大量时可考虑虚拟化）
 - 搜索用简单 includes 匹配即可，不需要模糊搜索库
 - 不需要后端，纯前端扩展
-- 深色主题配色参考：bg=#0f0f1a, sidebar=#1a1a2e, card=#16213e, accent=#667eea
+- 浅色主题配色：bg=#F6F5F3, sidebar=#FAFAF8, card=#FFFFFF, border=#E7E5E4

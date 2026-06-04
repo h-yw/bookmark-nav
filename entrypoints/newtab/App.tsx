@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { BookmarkItem, FolderNode } from '../components/types';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import type { BookmarkItem, FolderNode, ViewMode } from '../components/types';
 import { flattenBookmarks, buildFolderTree, getBookmarksInFolder, filterBookmarks } from '../components/bookmarks';
 import { Sidebar } from '../components/Sidebar';
 import { BookmarkGrid } from '../components/BookmarkGrid';
@@ -14,8 +14,7 @@ import {
   saveBookmarkHistory,
   type BookmarkUsage,
 } from '../components/history';
-
-type ViewMode = 'folder' | 'frequent' | 'recent';
+import { openUrl } from '../components/utils';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -84,28 +83,33 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const loadBookmarks = () => {
     setLoading(true);
     setError(null);
-    let cancelled = false;
     try {
       chrome.bookmarks.getTree((tree) => {
-        if (cancelled) return;
+        if (!mountedRef.current) return;
         const rootChildren = tree[0]?.children ?? [];
         setAllBookmarks(flattenBookmarks(rootChildren));
         setFolders(buildFolderTree(rootChildren));
         setLoading(false);
       });
     } catch {
-      if (!cancelled) {
+      if (mountedRef.current) {
         setError('书签加载失败');
         setLoading(false);
       }
     }
-    return () => { cancelled = true; };
   };
 
-  useEffect(() => loadBookmarks(), []);
+  useEffect(() => { loadBookmarks(); }, []);
 
   const handleSettingsChange = (nextSettings: AppSettings) => {
     setSettings(nextSettings);
@@ -123,14 +127,6 @@ export default function App() {
   const handleWebSearch = (query: string) => {
     const url = SEARCH_URLS[settings.searchEngine](query);
     openUrl(url);
-  };
-
-  const openUrl = (url: string) => {
-    try {
-      chrome.tabs.update({ url });
-    } catch {
-      window.open(url, '_blank');
-    }
   };
 
   const handleOpenBookmark = (bookmark: BookmarkItem) => {
@@ -222,7 +218,7 @@ export default function App() {
           </svg>
           <p className="text-stone-500 text-sm">{error}</p>
           <button
-            onClick={() => { const cleanup = loadBookmarks(); return cleanup; }}
+            onClick={() => loadBookmarks()}
             className="px-5 py-2.5 rounded-xl bg-white border border-stone-200 text-stone-700 text-sm hover:bg-stone-50 hover:border-stone-300 transition-colors shadow-sm"
           >
             重试
@@ -274,7 +270,6 @@ export default function App() {
           bookmarks={displayedBookmarks}
           isSearching={!!searchQuery}
           density={settings.cardDensity}
-          faviconSource={settings.faviconSource}
           selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
           onOpenBookmark={handleOpenBookmark}
         />

@@ -13,3 +13,5 @@ export interface FolderNode {
   children: FolderNode[];
   bookmarkCount: number;
 }
+
+export type ViewMode = 'folder' | 'frequent' | 'recent';

@@ -26,11 +26,11 @@ pnpm lint:fix     # 自动修复 lint 问题
 
 ## IMPORTANT: Favicon
 
-用 `chrome://favicon/size/32@2x/{origin}`，不要用外部 API。传 `new URL(url).origin`（不是完整 URL）。这是扩展内部协议，无限流，不需要额外权限。
+用 `{origin}/favicon.ico` 作为首选，DuckDuckGo 作为 fallback。`chrome://favicon` 在 Edge 中不工作（会转译为 `edge://` 并被拦截）。`favicon.ts` 导出 `getFaviconUrl` 和 `getDuckDuckGoFaviconUrl`，有模块级 Map 缓存。
 
 ## 性能
 
-- BookmarkGrid 使用 @tanstack/react-virtual 虚拟化，< 50 条书签时跳过虚拟化直接渲染
+- BookmarkGrid 使用 flex-wrap 布局，大量书签时可考虑添加虚拟化
 - favicon.ts 有模块级 Map 缓存，相同 URL 只解析一次
 - SearchBar 有 200ms 防抖
 
