@@ -51,7 +51,7 @@ describe('flattenBookmarks', () => {
     expect(result[0].folderIdPath).toEqual(['1', '2']);
   });
 
-  it('handles empty title as Untitled', () => {
+  it('handles empty title as 未命名', () => {
     const tree: Node[] = [
       node('1', '', {
         children: [
@@ -60,7 +60,7 @@ describe('flattenBookmarks', () => {
       }),
     ];
     const result = flattenBookmarks(tree);
-    expect(result[0].title).toBe('Untitled');
+    expect(result[0].title).toBe('未命名');
   });
 
   it('handles missing dateAdded', () => {
@@ -105,10 +105,10 @@ describe('buildFolderTree', () => {
     expect(result[0].children[0].title).toBe('Sub');
   });
 
-  it('handles empty title as Untitled', () => {
+  it('handles empty title as 未命名', () => {
     const tree: Node[] = [node('1', '', { children: [] })];
     const result = buildFolderTree(tree);
-    expect(result[0].title).toBe('Untitled');
+    expect(result[0].title).toBe('未命名');
   });
 
   it('skips non-folder nodes', () => {
@@ -141,6 +141,12 @@ describe('getBookmarksInFolder', () => {
     const result = getBookmarksInFolder(bookmarks, ['10', '20']);
     expect(result).toHaveLength(1);
     expect(result[0].title).toBe('B');
+  });
+
+  it('can include nested folder bookmarks', () => {
+    const result = getBookmarksInFolder(bookmarks, ['10'], true);
+    expect(result).toHaveLength(2);
+    expect(result.map((b) => b.title)).toEqual(['A', 'B']);
   });
 
   it('returns empty for non-matching path', () => {

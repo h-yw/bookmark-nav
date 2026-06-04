@@ -4,6 +4,16 @@ import { flattenBookmarks, buildFolderTree, getBookmarksInFolder, filterBookmark
 import { Sidebar } from '../components/Sidebar';
 import { BookmarkGrid } from '../components/BookmarkGrid';
 import { SearchBar } from '../components/SearchBar';
+import { SettingsDrawer } from '../components/SettingsDrawer';
+import type { AppSettings, SearchEngineId } from '../components/settings';
+import { loadSettings, saveSettings } from '../components/settings';
+
+const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
+  google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+  bing: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+  duckduckgo: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+  baidu: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
+};
 
 function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): FolderNode | null {
   let currentFolders = folders;
@@ -23,7 +33,9 @@ export default function App() {
   const [folders, setFolders] = useState<FolderNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +53,7 @@ export default function App() {
       });
     } catch {
       if (!cancelled) {
-        setError('Failed to load bookmarks');
+        setError('书签加载失败');
         setLoading(false);
       }
     }
@@ -50,22 +62,54 @@ export default function App() {
 
   useEffect(() => loadBookmarks(), []);
 
+  const handleSettingsChange = (nextSettings: AppSettings) => {
+    setSettings(nextSettings);
+    saveSettings(nextSettings);
+  };
+
+  const handleWebSearch = (query: string) => {
+    const url = SEARCH_URLS[settings.searchEngine](query);
+    openUrl(url);
+  };
+
+  const openUrl = (url: string) => {
+    try {
+      chrome.tabs.update({ url });
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleOpenFirstBookmark = (query: string) => {
+    const matches = query ? filterBookmarks(allBookmarks, query) : displayedBookmarks;
+    const first = matches[0];
+    if (!first) return false;
+    openUrl(first.url);
+    return true;
+  };
+
   const displayedBookmarks = useMemo(() => {
     if (searchQuery) {
       return filterBookmarks(allBookmarks, searchQuery);
     }
-    return getBookmarksInFolder(allBookmarks, selectedPath);
-  }, [allBookmarks, selectedPath, searchQuery]);
+    return getBookmarksInFolder(
+      allBookmarks,
+      selectedPath,
+      settings.bookmarkScope === 'nested'
+    );
+  }, [allBookmarks, selectedPath, searchQuery, settings.bookmarkScope]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
   const pageTitle = searchQuery
-    ? 'Search Results'
-    : selectedFolder?.title ?? 'All Bookmarks';
+    ? '搜索结果'
+    : selectedFolder?.title ?? '全部书签';
   const pageSubtitle = searchQuery
-    ? `Matching "${searchQuery}" across all folders`
+    ? `在全部文件夹中搜索“${searchQuery}”`
     : selectedPath.length === 0
-      ? 'Every saved bookmark in one place'
-      : `${displayedBookmarks.length} bookmark${displayedBookmarks.length === 1 ? '' : 's'} in this folder`;
+      ? '查看所有已保存的书签'
+      : settings.bookmarkScope === 'nested'
+        ? `当前文件夹及子文件夹包含 ${displayedBookmarks.length} 个书签`
+        : `当前文件夹包含 ${displayedBookmarks.length} 个书签`;
 
   if (loading) {
     return (
@@ -81,9 +125,13 @@ export default function App() {
           <div className="sticky top-0 z-10 px-4 py-4 bg-[#F6F5F3] border-b border-stone-200 md:px-8">
             <div className="h-12 rounded-xl skeleton" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-4 md:p-8">
+          <div className="flex flex-wrap content-start items-start gap-3 p-4 sm:gap-4 md:p-8">
             {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="h-24 rounded-xl skeleton" />
+              <div
+                key={i}
+                className="h-24 shrink-0 rounded-xl skeleton"
+                style={{ width: 'clamp(150px, calc((100% - 16px) / 2), 220px)' }}
+              />
             ))}
           </div>
         </main>
@@ -103,7 +151,7 @@ export default function App() {
             onClick={() => { const cleanup = loadBookmarks(); return cleanup; }}
             className="px-5 py-2.5 rounded-xl bg-white border border-stone-200 text-stone-700 text-sm hover:bg-stone-50 hover:border-stone-300 transition-colors shadow-sm"
           >
-            Retry
+            重试
           </button>
         </div>
       </div>
@@ -126,14 +174,32 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0">
         <SearchBar
           onSearch={setSearchQuery}
+          onOpenFirstBookmark={handleOpenFirstBookmark}
+          onWebSearch={handleWebSearch}
           resultCount={searchQuery ? displayedBookmarks.length : undefined}
           title={pageTitle}
           subtitle={pageSubtitle}
           totalCount={allBookmarks.length}
+          defaultMode={settings.defaultSearchMode}
+          searchEngine={settings.searchEngine}
+          noResultWebSearch={settings.noResultWebSearch}
+          onSearchEngineChange={(searchEngine) => handleSettingsChange({ ...settings, searchEngine })}
           onOpenSidebar={() => setSidebarOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
-        <BookmarkGrid bookmarks={displayedBookmarks} isSearching={!!searchQuery} />
+        <BookmarkGrid
+          bookmarks={displayedBookmarks}
+          isSearching={!!searchQuery}
+          density={settings.cardDensity}
+          faviconSource={settings.faviconSource}
+        />
       </main>
+      <SettingsDrawer
+        open={settingsOpen}
+        settings={settings}
+        onClose={() => setSettingsOpen(false)}
+        onChange={handleSettingsChange}
+      />
     </div>
   );
 }
