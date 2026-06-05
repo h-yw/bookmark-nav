@@ -5,6 +5,14 @@ export interface BookmarkUpdateInput {
   url: string;
 }
 
+export interface BookmarkSearchQuery {
+  folder: string;
+  include: string[];
+  exclude: string[];
+  site: string;
+  text: string;
+}
+
 export function flattenBookmarks(
   nodes: chrome.bookmarks.BookmarkTreeNode[],
   folderPath: string[] = [],
@@ -88,38 +96,74 @@ export function filterBookmarks(
   query: string
 ): BookmarkItem[] {
   const parsed = parseBookmarkSearchQuery(query);
-  if (!parsed.text && !parsed.folder) return allBookmarks;
+  if (!parsed.text && !parsed.folder && !parsed.site && parsed.exclude.length === 0) return allBookmarks;
 
   return allBookmarks
     .map((bookmark, index) => ({
       bookmark,
       index,
-      score: getSearchScore(bookmark, parsed.text),
+      score: getSearchScore(bookmark, parsed.include),
     }))
     .filter((item) => {
       if (parsed.folder && !matchesFolder(item.bookmark, parsed.folder)) return false;
-      return parsed.text ? item.score > 0 : true;
+      if (parsed.site && !matchesSite(item.bookmark, parsed.site)) return false;
+      if (parsed.exclude.some((token) => hasSearchMatch(item.bookmark, token))) return false;
+      return parsed.include.length > 0 ? item.score > 0 : true;
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((item) => item.bookmark);
 }
 
-export function parseBookmarkSearchQuery(query: string): { folder: string; text: string } {
+export function parseBookmarkSearchQuery(query: string): BookmarkSearchQuery {
   const trimmed = query.trim().toLowerCase();
+  const empty = { folder: '', include: [], exclude: [], site: '', text: '' };
+  if (!trimmed) return empty;
+
+  let folder = '';
+  let text = trimmed;
+
   if (!trimmed.startsWith('@')) {
-    return { folder: '', text: trimmed };
+    text = trimmed;
+  } else {
+    const [folderToken = '', ...rest] = trimmed.split(/\s+/);
+    folder = folderToken.slice(1);
+    text = rest.join(' ').trim();
   }
 
-  const [folderToken = '', ...rest] = trimmed.split(/\s+/);
-  const folder = folderToken.slice(1);
+  const include: string[] = [];
+  const exclude: string[] = [];
+  let site = '';
+
+  for (const token of text.split(/\s+/)) {
+    if (!token) continue;
+    if (token.startsWith('site:')) {
+      site = token.slice(5).replace(/^www\./, '');
+      continue;
+    }
+    if (token.startsWith('-') && token.length > 1) {
+      exclude.push(token.slice(1));
+      continue;
+    }
+    include.push(token);
+  }
+
   return {
     folder,
-    text: rest.join(' ').trim(),
+    include,
+    exclude,
+    site,
+    text: include.join(' '),
   };
 }
 
-function getSearchScore(bookmark: BookmarkItem, query: string): number {
-  if (!query) return 1;
+function getSearchScore(bookmark: BookmarkItem, queries: string[]): number {
+  if (queries.length === 0) return 1;
+  const scores = queries.map((query) => getSingleSearchScore(bookmark, query));
+  if (scores.some((score) => score === 0)) return 0;
+  return scores.reduce((sum, score) => sum + score, 0);
+}
+
+function getSingleSearchScore(bookmark: BookmarkItem, query: string): number {
   const title = bookmark.title.toLowerCase();
   const url = bookmark.url.toLowerCase();
   const hostname = getHostname(bookmark.url);
@@ -154,6 +198,15 @@ function matchesFolder(bookmark: BookmarkItem, folderQuery: string): boolean {
   return bookmark.folderPath.some((folder) => folder.toLowerCase().includes(folderQuery));
 }
 
+function matchesSite(bookmark: BookmarkItem, siteQuery: string): boolean {
+  if (!siteQuery) return true;
+  return getHostname(bookmark.url).includes(siteQuery);
+}
+
+function hasSearchMatch(bookmark: BookmarkItem, query: string): boolean {
+  return getSingleSearchScore(bookmark, query) > 0;
+}
+
 export function updateBookmark(id: string, changes: BookmarkUpdateInput): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.bookmarks.update(id, changes, () => {
@@ -170,6 +223,19 @@ export function updateBookmark(id: string, changes: BookmarkUpdateInput): Promis
 export function removeBookmark(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.bookmarks.remove(id, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+export function moveBookmark(id: string, parentId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.move(id, { parentId }, () => {
       const error = chrome.runtime.lastError;
       if (error) {
         reject(new Error(error.message));

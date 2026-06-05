@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import type { BookmarkItem } from './types';
+import type { BookmarkItem, FolderNode } from './types';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
   error?: string | null;
+  saving?: boolean;
   onClose: () => void;
   onSave: (input: { title: string; url: string }) => void;
 }
@@ -12,8 +13,31 @@ interface EditBookmarkDialogProps {
 interface DeleteBookmarkDialogProps {
   bookmark: BookmarkItem | null;
   error?: string | null;
+  deleting?: boolean;
   onClose: () => void;
   onConfirm: () => void;
+}
+
+interface DeleteBookmarksDialogProps {
+  bookmarks: BookmarkItem[];
+  error?: string | null;
+  deleting?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+interface MoveBookmarksDialogProps {
+  bookmarks: BookmarkItem[];
+  folders: FolderNode[];
+  error?: string | null;
+  moving?: boolean;
+  onClose: () => void;
+  onConfirm: (folderId: string) => void;
+}
+
+interface FolderOption {
+  id: string;
+  label: string;
 }
 
 function DialogShell({
@@ -25,6 +49,17 @@ function DialogShell({
   children: ReactNode;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <button
@@ -53,7 +88,7 @@ function DialogShell({
   );
 }
 
-export function EditBookmarkDialog({ bookmark, error, onClose, onSave }: EditBookmarkDialogProps) {
+export function EditBookmarkDialog({ bookmark, error, saving = false, onClose, onSave }: EditBookmarkDialogProps) {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -115,15 +150,17 @@ export function EditBookmarkDialog({ bookmark, error, onClose, onSave }: EditBoo
           <button
             type="button"
             onClick={onClose}
+            disabled={saving}
             className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
           >
             取消
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700"
+            disabled={saving}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            保存
+            {saving ? '保存中...' : '保存'}
           </button>
         </div>
       </form>
@@ -131,7 +168,7 @@ export function EditBookmarkDialog({ bookmark, error, onClose, onSave }: EditBoo
   );
 }
 
-export function DeleteBookmarkDialog({ bookmark, error, onClose, onConfirm }: DeleteBookmarkDialogProps) {
+export function DeleteBookmarkDialog({ bookmark, error, deleting = false, onClose, onConfirm }: DeleteBookmarkDialogProps) {
   if (!bookmark) return null;
 
   return (
@@ -151,6 +188,7 @@ export function DeleteBookmarkDialog({ bookmark, error, onClose, onConfirm }: De
           <button
             type="button"
             onClick={onClose}
+            disabled={deleting}
             className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
           >
             取消
@@ -158,12 +196,137 @@ export function DeleteBookmarkDialog({ bookmark, error, onClose, onConfirm }: De
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500"
+            disabled={deleting}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            删除
+            {deleting ? '删除中...' : '删除'}
           </button>
         </div>
       </div>
     </DialogShell>
   );
+}
+
+export function DeleteBookmarksDialog({
+  bookmarks,
+  error,
+  deleting = false,
+  onClose,
+  onConfirm,
+}: DeleteBookmarksDialogProps) {
+  if (bookmarks.length === 0) return null;
+
+  return (
+    <DialogShell title="批量删除书签" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          {bookmarks.slice(0, 8).map((bookmark) => (
+            <div key={bookmark.id}>
+              <div className="truncate text-sm font-medium text-stone-800">{bookmark.title}</div>
+              <div className="truncate text-xs text-stone-400">{bookmark.url}</div>
+            </div>
+          ))}
+          {bookmarks.length > 8 && (
+            <div className="text-xs text-stone-400">另有 {bookmarks.length - 8} 个书签</div>
+          )}
+        </div>
+        <p className="text-sm leading-6 text-stone-500">将删除 {bookmarks.length} 个浏览器书签，无法在本页面内撤销。</p>
+        {error && (
+          <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleting ? '删除中...' : '删除'}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function MoveBookmarksDialog({
+  bookmarks,
+  folders,
+  error,
+  moving = false,
+  onClose,
+  onConfirm,
+}: MoveBookmarksDialogProps) {
+  const [folderId, setFolderId] = useState('');
+  const folderOptions = useMemo(() => flattenFolderOptions(folders), [folders]);
+
+  useEffect(() => {
+    setFolderId(folderOptions[0]?.id ?? '');
+  }, [bookmarks, folderOptions]);
+
+  if (bookmarks.length === 0) return null;
+
+  return (
+    <DialogShell title="移动书签" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="text-sm text-stone-700">将移动 {bookmarks.length} 个书签到：</div>
+          <select
+            value={folderId}
+            onChange={(event) => setFolderId(event.target.value)}
+            className="mt-2 h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none transition-colors focus:border-stone-400"
+          >
+            {folderOptions.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && (
+          <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={moving}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(folderId)}
+            disabled={moving || !folderId}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {moving ? '移动中...' : '移动'}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+function flattenFolderOptions(folders: FolderNode[], level = 0): FolderOption[] {
+  return folders.flatMap((folder) => [
+    {
+      id: folder.id,
+      label: `${'　'.repeat(level)}${folder.title}`,
+    },
+    ...flattenFolderOptions(folder.children, level + 1),
+  ]);
 }

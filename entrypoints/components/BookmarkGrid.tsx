@@ -11,8 +11,10 @@ interface BookmarkGridProps {
   noResultWebSearch?: boolean;
   density?: CardDensity;
   selectedBookmarkId?: string | null;
+  selectedBookmarkIds?: string[];
   onOpenBookmark?: (bookmark: BookmarkItem) => void;
   onBookmarkAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
+  onToggleBookmarkSelection?: (bookmark: BookmarkItem) => void;
   onWebSearch?: (query: string) => void;
 }
 
@@ -74,11 +76,14 @@ export function BookmarkGrid({
   noResultWebSearch = false,
   density = 'comfortable',
   selectedBookmarkId = null,
+  selectedBookmarkIds = [],
   onOpenBookmark,
   onBookmarkAction,
+  onToggleBookmarkSelection,
   onWebSearch,
 }: BookmarkGridProps) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const selectedIds = new Set(selectedBookmarkIds);
 
   useEffect(() => {
     if (!selectedBookmarkId) return;
@@ -116,8 +121,10 @@ export function BookmarkGrid({
             showFolderPath={isSearching}
             density={density}
             selected={selectedBookmarkId === b.id}
+            checked={selectedIds.has(b.id)}
             onOpen={onOpenBookmark}
             onAction={onBookmarkAction}
+            onToggleSelect={onToggleBookmarkSelection}
           />
         </div>
       ))}

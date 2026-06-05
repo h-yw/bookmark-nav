@@ -5,6 +5,7 @@ import {
   buildFolderTree,
   getBookmarksInFolder,
   filterBookmarks,
+  moveBookmark,
   removeBookmark,
   updateBookmark,
 } from '../components/bookmarks';
@@ -12,13 +13,19 @@ import { Sidebar } from '../components/Sidebar';
 import { BookmarkGrid } from '../components/BookmarkGrid';
 import { SearchBar } from '../components/SearchBar';
 import { SettingsDrawer } from '../components/SettingsDrawer';
-import { DeleteBookmarkDialog, EditBookmarkDialog } from '../components/BookmarkManageDialog';
+import {
+  DeleteBookmarkDialog,
+  DeleteBookmarksDialog,
+  EditBookmarkDialog,
+  MoveBookmarksDialog,
+} from '../components/BookmarkManageDialog';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
-import { loadSettings, saveSettings } from '../components/settings';
+import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings } from '../components/settings';
 import {
   getHistoryBookmarks,
   loadBookmarkHistory,
+  normalizeBookmarkHistory,
   pruneBookmarkHistory,
   recordBookmarkOpen,
   saveBookmarkHistory,
@@ -39,6 +46,14 @@ const SEARCH_ENGINES_BY_ID: Record<SearchEngineId, string> = {
   duckduckgo: 'DuckDuckGo',
   baidu: '百度',
 };
+
+interface BookmarkNavExportData {
+  app: 'bookmark-nav';
+  version: 1;
+  exportedAt: string;
+  settings: AppSettings;
+  history: BookmarkUsage[];
+}
 
 function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): FolderNode | null {
   let currentFolders = folders;
@@ -99,8 +114,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [movingBookmarks, setMovingBookmarks] = useState<BookmarkItem[]>([]);
+  const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,6 +203,58 @@ export default function App() {
     }
   };
 
+  const handleExportData = () => {
+    const data: BookmarkNavExportData = {
+      app: 'bookmark-nav',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings,
+      history,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bookmark-nav-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice('数据已导出');
+  };
+
+  const handleImportData = async (file: File) => {
+    setActionError(null);
+    setNotice(null);
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const input = parsed && typeof parsed === 'object'
+        ? parsed as { settings?: unknown; history?: unknown }
+        : {};
+      const nextSettings = normalizeSettings(input.settings);
+      const nextHistory = pruneBookmarkHistory(
+        allBookmarks,
+        normalizeBookmarkHistory(input.history)
+      );
+
+      setSettings(nextSettings);
+      saveSettings(nextSettings);
+      setHistory(nextHistory);
+      saveBookmarkHistory(nextHistory);
+      setNotice('数据已导入');
+    } catch {
+      setActionError('导入失败，请选择有效的 JSON 文件');
+    }
+  };
+
+  const handleClearLocalData = () => {
+    if (!window.confirm('确定清理本地设置和常用/最近记录吗？浏览器书签不会被删除。')) return;
+    setSettings(DEFAULT_SETTINGS);
+    saveSettings(DEFAULT_SETTINGS);
+    setHistory([]);
+    saveBookmarkHistory([]);
+    setViewMode('folder');
+    setNotice('本地数据已清理');
+  };
+
   const handleWebSearch = (query: string) => {
     const url = SEARCH_URLS[settings.searchEngine](query);
     openUrl(url);
@@ -223,12 +294,18 @@ export default function App() {
       return;
     }
 
+    if (action === 'move') {
+      setMovingBookmarks([bookmark]);
+      return;
+    }
+
     setDeletingBookmark(bookmark);
   };
 
   const handleSaveBookmark = async (input: { title: string; url: string }) => {
     if (!editingBookmark) return;
     setActionError(null);
+    setActionPending(true);
     try {
       await updateBookmark(editingBookmark.id, input);
       setEditingBookmark(null);
@@ -236,19 +313,79 @@ export default function App() {
       loadBookmarks(false);
     } catch {
       setActionError('更新书签失败');
+    } finally {
+      setActionPending(false);
     }
   };
 
   const handleDeleteBookmark = async () => {
     if (!deletingBookmark) return;
     setActionError(null);
+    setActionPending(true);
     try {
       await removeBookmark(deletingBookmark.id);
       setDeletingBookmark(null);
+      setSelectedBookmarkIds((ids) => ids.filter((id) => id !== deletingBookmark.id));
       setNotice('书签已删除');
       loadBookmarks(false);
     } catch {
       setActionError('删除书签失败');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleToggleBookmarkSelection = (bookmark: BookmarkItem) => {
+    setSelectedBookmarkIds((ids) =>
+      ids.includes(bookmark.id)
+        ? ids.filter((id) => id !== bookmark.id)
+        : [...ids, bookmark.id]
+    );
+  };
+
+  const handleCopySelectedBookmarks = async () => {
+    setActionError(null);
+    setNotice(null);
+    try {
+      await navigator.clipboard.writeText(selectedBookmarks.map((bookmark) => bookmark.url).join('\n'));
+      setNotice(`已复制 ${selectedBookmarks.length} 个链接`);
+    } catch {
+      setActionError('批量复制失败');
+    }
+  };
+
+  const handleDeleteSelectedBookmarks = async () => {
+    if (selectedBookmarks.length === 0) return;
+    setActionError(null);
+    setActionPending(true);
+    try {
+      await Promise.all(selectedBookmarks.map((bookmark) => removeBookmark(bookmark.id)));
+      setBatchDeleting(false);
+      setSelectedBookmarkIds([]);
+      setNotice(`已删除 ${selectedBookmarks.length} 个书签`);
+      loadBookmarks(false);
+    } catch {
+      setActionError('批量删除失败');
+    } finally {
+      setActionPending(false);
+    }
+  };
+
+  const handleMoveBookmarks = async (folderId: string) => {
+    if (movingBookmarks.length === 0 || !folderId) return;
+    setActionError(null);
+    setActionPending(true);
+    try {
+      await Promise.all(movingBookmarks.map((bookmark) => moveBookmark(bookmark.id, folderId)));
+      const movedIds = new Set(movingBookmarks.map((bookmark) => bookmark.id));
+      setSelectedBookmarkIds((ids) => ids.filter((id) => !movedIds.has(id)));
+      setMovingBookmarks([]);
+      setNotice(`已移动 ${movingBookmarks.length} 个书签`);
+      loadBookmarks(false);
+    } catch {
+      setActionError('移动书签失败');
+    } finally {
+      setActionPending(false);
     }
   };
 
@@ -279,7 +416,18 @@ export default function App() {
     }
   }, [displayedBookmarks.length, selectedResultIndex]);
 
+  useEffect(() => {
+    const validIds = new Set(allBookmarks.map((bookmark) => bookmark.id));
+    setSelectedBookmarkIds((ids) => ids.filter((id) => validIds.has(id)));
+  }, [allBookmarks]);
+
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
+  const selectedBookmarks = useMemo(
+    () => selectedBookmarkIds
+      .map((id) => allBookmarks.find((bookmark) => bookmark.id === id))
+      .filter((bookmark): bookmark is BookmarkItem => Boolean(bookmark)),
+    [allBookmarks, selectedBookmarkIds]
+  );
   const pageTitle = getPageTitle(searchQuery, viewMode, selectedFolder);
   const pageSubtitle = getPageSubtitle({
     searchQuery,
@@ -382,19 +530,68 @@ export default function App() {
           noResultWebSearch={settings.noResultWebSearch}
           density={settings.cardDensity}
           selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
+          selectedBookmarkIds={selectedBookmarkIds}
           onOpenBookmark={handleOpenBookmark}
           onBookmarkAction={handleBookmarkAction}
+          onToggleBookmarkSelection={handleToggleBookmarkSelection}
           onWebSearch={handleWebSearch}
         />
       </main>
-      {(notice || actionError) && !editingBookmark && !deletingBookmark && (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700 shadow-lg">
+      {selectedBookmarks.length > 0 && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
+        <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
+          <span className="px-1">已选择 {selectedBookmarks.length} 个</span>
+          <button
+            type="button"
+            onClick={handleCopySelectedBookmarks}
+            className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            复制链接
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionError(null);
+              setMovingBookmarks(selectedBookmarks);
+            }}
+            className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            移动
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionError(null);
+              setBatchDeleting(true);
+            }}
+            className="rounded-lg border border-red-100 px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50"
+          >
+            删除
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedBookmarkIds([])}
+            aria-label="清除选择"
+            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+          >
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {(notice || actionError) && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
+        <div className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2 text-sm shadow-lg ${
+          actionError
+            ? 'border-red-100 bg-red-50 text-red-600'
+            : 'border-stone-200 bg-white text-stone-700'
+        }`}>
           {actionError ?? notice}
         </div>
       )}
       <EditBookmarkDialog
         bookmark={editingBookmark}
         error={editingBookmark ? actionError : null}
+        saving={actionPending}
         onClose={() => {
           setEditingBookmark(null);
           setActionError(null);
@@ -404,11 +601,33 @@ export default function App() {
       <DeleteBookmarkDialog
         bookmark={deletingBookmark}
         error={deletingBookmark ? actionError : null}
+        deleting={actionPending}
         onClose={() => {
           setDeletingBookmark(null);
           setActionError(null);
         }}
         onConfirm={handleDeleteBookmark}
+      />
+      <DeleteBookmarksDialog
+        bookmarks={batchDeleting ? selectedBookmarks : []}
+        error={batchDeleting ? actionError : null}
+        deleting={actionPending}
+        onClose={() => {
+          setBatchDeleting(false);
+          setActionError(null);
+        }}
+        onConfirm={handleDeleteSelectedBookmarks}
+      />
+      <MoveBookmarksDialog
+        bookmarks={movingBookmarks}
+        folders={folders}
+        error={movingBookmarks.length > 0 ? actionError : null}
+        moving={actionPending}
+        onClose={() => {
+          setMovingBookmarks([]);
+          setActionError(null);
+        }}
+        onConfirm={handleMoveBookmarks}
       />
       <SettingsDrawer
         open={settingsOpen}
@@ -417,6 +636,9 @@ export default function App() {
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
         onClearHistory={handleClearHistory}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+        onClearLocalData={handleClearLocalData}
       />
     </div>
   );

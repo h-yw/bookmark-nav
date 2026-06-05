@@ -4,15 +4,17 @@ import { getFaviconUrl, getDuckDuckGoFaviconUrl } from './favicon';
 import type { CardDensity } from './settings';
 import { simplifyUrl, openUrl } from './utils';
 
-export type BookmarkCardAction = 'copy' | 'edit' | 'delete';
+export type BookmarkCardAction = 'copy' | 'edit' | 'move' | 'delete';
 
 interface BookmarkCardProps {
   bookmark: BookmarkItem;
   showFolderPath?: boolean;
   density?: CardDensity;
   selected?: boolean;
+  checked?: boolean;
   onOpen?: (bookmark: BookmarkItem) => void;
   onAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
+  onToggleSelect?: (bookmark: BookmarkItem) => void;
 }
 
 function getFolderLabel(folderPath: string[]): string {
@@ -32,8 +34,10 @@ export function BookmarkCard({
   showFolderPath = false,
   density = 'comfortable',
   selected = false,
+  checked = false,
   onOpen,
   onAction,
+  onToggleSelect,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
@@ -57,9 +61,18 @@ export function BookmarkCard({
       if (menuRef.current?.contains(event.target as Node)) return;
       setMenuOpen(false);
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
 
     document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
   const handleClick = () => {
@@ -138,13 +151,26 @@ export function BookmarkCard({
             </svg>
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg" role="menu">
               <MenuItem onClick={() => handleAction('copy')}>复制链接</MenuItem>
               <MenuItem onClick={() => handleAction('edit')}>编辑</MenuItem>
+              <MenuItem onClick={() => handleAction('move')}>移动</MenuItem>
               <MenuItem danger onClick={() => handleAction('delete')}>删除</MenuItem>
             </div>
           )}
         </div>
+      )}
+
+      {onToggleSelect && (
+        <label className="absolute left-2 top-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-white/90 text-stone-400 opacity-100 shadow-sm ring-1 ring-stone-200 transition-colors hover:text-stone-700 sm:opacity-0 sm:group-hover:opacity-100 sm:has-[:checked]:opacity-100">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => onToggleSelect(bookmark)}
+            aria-label="选择书签"
+            className="h-3.5 w-3.5 accent-stone-800"
+          />
+        </label>
       )}
 
       {showFolderPath && (
@@ -171,6 +197,7 @@ function MenuItem({
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onClick}
       className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
         danger

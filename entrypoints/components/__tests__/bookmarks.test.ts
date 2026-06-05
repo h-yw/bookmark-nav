@@ -282,4 +282,73 @@ describe('filterBookmarks', () => {
 
     expect(filterBookmarks(items, '@工作 react')).toHaveLength(0);
   });
+
+  it('matches all include keywords', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React Docs',
+        url: 'https://react.dev',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'React Native',
+        url: 'https://reactnative.dev',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, 'react docs').map((b) => b.id)).toEqual(['1']);
+  });
+
+  it('excludes negative keywords', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React Docs',
+        url: 'https://react.dev',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'React Native',
+        url: 'https://reactnative.dev',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, 'react -native').map((b) => b.id)).toEqual(['1']);
+  });
+
+  it('filters by site token', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React Issue',
+        url: 'https://github.com/facebook/react/issues',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'React Docs',
+        url: 'https://react.dev/learn',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, 'site:github.com react').map((b) => b.id)).toEqual(['1']);
+  });
 });

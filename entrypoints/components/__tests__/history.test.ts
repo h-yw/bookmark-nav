@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getHistoryBookmarks, pruneBookmarkHistory, recordBookmarkOpen } from '../history';
+import {
+  getHistoryBookmarks,
+  normalizeBookmarkHistory,
+  pruneBookmarkHistory,
+  recordBookmarkOpen,
+} from '../history';
 import type { BookmarkItem } from '../types';
 
 const bookmarks: BookmarkItem[] = [
@@ -58,5 +63,14 @@ describe('bookmark history', () => {
     ];
 
     expect(pruneBookmarkHistory(bookmarks, history)).toHaveLength(1);
+  });
+
+  it('normalizes imported history', () => {
+    expect(normalizeBookmarkHistory([
+      { id: '1', title: 'Alpha', url: 'https://alpha.com', count: 1, lastOpened: 100 },
+      { id: '2', title: 'Broken', url: 'https://broken.com', count: '1', lastOpened: 100 },
+    ])).toEqual([
+      { id: '1', title: 'Alpha', url: 'https://alpha.com', count: 1, lastOpened: 100 },
+    ]);
   });
 });
