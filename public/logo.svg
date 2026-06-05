@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#162033"/>
+      <stop offset="100%" stop-color="#0c1520"/>
+    </linearGradient>
+    <linearGradient id="bk" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#132840"/>
+    </linearGradient>
+    <linearGradient id="dot" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆形背景，无角落问题 -->
+  <circle cx="64" cy="64" r="62" fill="url(#bg)"/>
+
+  <!-- 书签外框 -->
+  <path d="M64 18 C52 18 40 30 40 42 L40 78 C40 82 42 85 45 87 L56 95 C60 97.5 68 97.5 72 95 L83 87 C86 85 88 82 88 78 L88 42 C88 30 76 18 64 18 Z"
+        fill="url(#bk)"/>
+
+  <!-- 书签内镂空 -->
+  <path d="M64 23 C54 23 45 32 45 42 L45 76 C45 80 47 83 50 85 L59 92 C61.5 93.5 66.5 93.5 69 92 L78 85 C81 83 83 80 83 76 L83 42 C83 32 74 23 64 23 Z"
+        fill="#0b1420"/>
+
+  <!-- 3x3 导航网格 -->
+  <circle cx="55" cy="48" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="48" r="4" fill="url(#dot)"/>
+  <circle cx="73" cy="48" r="4" fill="url(#dot)"/>
+  <circle cx="55" cy="60" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="60" r="4.5" fill="#fbbf24"/>
+  <circle cx="73" cy="60" r="4" fill="url(#dot)"/>
+  <circle cx="55" cy="72" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="72" r="4" fill="url(#dot)"/>
+  <circle cx="73" cy="72" r="4" fill="url(#dot)"/>
+</svg>

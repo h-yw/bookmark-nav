@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bk" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f2035"/>
+    </linearGradient>
+    <linearGradient id="dot" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 书签主体，无背景，无圆角矩形 -->
+  <path d="M64 12 C50 12 38 24 38 38 L38 82 C38 86 40 89 43 91 L56 100 C60 102.5 68 102.5 72 100 L85 91 C88 89 90 86 90 82 L90 38 C90 24 78 12 64 12 Z"
+        fill="url(#bk)" opacity="0.95"/>
+
+  <!-- 书签内镂空 -->
+  <path d="M64 16 C52 16 42 26 42 38 L42 80 C42 84 44 87 47 89 L58 97 C61 99 67 99 70 97 L81 89 C84 87 86 84 86 80 L86 38 C86 26 76 16 64 16 Z"
+        fill="#0b1929"/>
+
+  <!-- 3x3 导航网格圆点 -->
+  <circle cx="55" cy="46" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="46" r="4" fill="url(#dot)"/>
+  <circle cx="73" cy="46" r="4" fill="url(#dot)"/>
+  <circle cx="55" cy="58" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="58" r="4.5" fill="#fbbf24"/>
+  <circle cx="73" cy="58" r="4" fill="url(#dot)"/>
+  <circle cx="55" cy="70" r="4" fill="url(#dot)"/>
+  <circle cx="64" cy="70" r="4" fill="url(#dot)"/>
+  <circle cx="73" cy="70" r="4" fill="url(#dot)"/>
+</svg>
