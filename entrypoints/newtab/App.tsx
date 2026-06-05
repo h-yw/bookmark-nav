@@ -14,10 +14,13 @@ import { BookmarkGrid } from '../components/BookmarkGrid';
 import { SearchBar } from '../components/SearchBar';
 import { SettingsDrawer } from '../components/SettingsDrawer';
 import {
+  ClearLocalDataDialog,
+  ClearHistoryDialog,
   DeleteBookmarkDialog,
   DeleteBookmarksDialog,
   EditBookmarkDialog,
   MoveBookmarksDialog,
+  ResetSettingsDialog,
 } from '../components/BookmarkManageDialog';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
@@ -116,6 +119,9 @@ export default function App() {
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [movingBookmarks, setMovingBookmarks] = useState<BookmarkItem[]>([]);
+  const [clearingHistory, setClearingHistory] = useState(false);
+  const [clearingLocalData, setClearingLocalData] = useState(false);
+  const [resettingSettings, setResettingSettings] = useState(false);
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -201,6 +207,8 @@ export default function App() {
     if (viewMode !== 'folder') {
       setViewMode('folder');
     }
+    setClearingHistory(false);
+    setNotice('打开记录已清空');
   };
 
   const handleExportData = () => {
@@ -246,13 +254,19 @@ export default function App() {
   };
 
   const handleClearLocalData = () => {
-    if (!window.confirm('确定清理本地设置和常用/最近记录吗？浏览器书签不会被删除。')) return;
     setSettings(DEFAULT_SETTINGS);
     saveSettings(DEFAULT_SETTINGS);
     setHistory([]);
     saveBookmarkHistory([]);
     setViewMode('folder');
+    setClearingLocalData(false);
     setNotice('本地数据已清理');
+  };
+
+  const handleResetSettings = () => {
+    handleSettingsChange(DEFAULT_SETTINGS);
+    setResettingSettings(false);
+    setNotice('设置已恢复默认');
   };
 
   const handleWebSearch = (query: string) => {
@@ -629,16 +643,33 @@ export default function App() {
         }}
         onConfirm={handleMoveBookmarks}
       />
+      <ClearLocalDataDialog
+        open={clearingLocalData}
+        onClose={() => setClearingLocalData(false)}
+        onConfirm={handleClearLocalData}
+      />
+      <ClearHistoryDialog
+        open={clearingHistory}
+        count={history.length}
+        onClose={() => setClearingHistory(false)}
+        onConfirm={handleClearHistory}
+      />
+      <ResetSettingsDialog
+        open={resettingSettings}
+        onClose={() => setResettingSettings(false)}
+        onConfirm={handleResetSettings}
+      />
       <SettingsDrawer
         open={settingsOpen}
         settings={settings}
         historyCount={history.length}
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
-        onClearHistory={handleClearHistory}
+        onClearHistory={() => setClearingHistory(true)}
         onExportData={handleExportData}
         onImportData={handleImportData}
-        onClearLocalData={handleClearLocalData}
+        onClearLocalData={() => setClearingLocalData(true)}
+        onResetSettings={() => setResettingSettings(true)}
       />
     </div>
   );

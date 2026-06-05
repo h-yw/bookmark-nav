@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { AppSettings, CardDensity, SearchEngineId, SearchMode } from './settings';
-import { DEFAULT_SETTINGS, SEARCH_ENGINES } from './settings';
+import { SEARCH_ENGINES } from './settings';
 
 interface SettingsDrawerProps {
   open: boolean;
@@ -13,6 +13,7 @@ interface SettingsDrawerProps {
   onExportData: () => void;
   onImportData: (file: File) => void;
   onClearLocalData: () => void;
+  onResetSettings: () => void;
 }
 
 function SettingGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -73,8 +74,24 @@ export function SettingsDrawer({
   onExportData,
   onImportData,
   onClearLocalData,
+  onResetSettings,
 }: SettingsDrawerProps) {
   const importInputRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, open]);
 
   if (!open) return null;
 
@@ -88,13 +105,19 @@ export function SettingsDrawer({
         className="absolute inset-0 bg-stone-900/20"
         onClick={onClose}
       />
-      <aside className="absolute right-0 top-0 flex h-full w-[360px] max-w-[92vw] flex-col border-l border-stone-200 bg-[#FAFAF8] shadow-xl">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        className="absolute right-0 top-0 flex h-full w-[360px] max-w-[92vw] flex-col border-l border-stone-200 bg-[#FAFAF8] shadow-xl"
+      >
         <div className="flex items-center justify-between px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-stone-900">设置</h2>
+            <h2 id="settings-title" className="text-base font-semibold text-stone-900">设置</h2>
             <p className="mt-0.5 text-xs text-stone-400">配置会立即生效</p>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="关闭设置"
@@ -231,7 +254,7 @@ export function SettingsDrawer({
         <div className="border-t border-stone-200 px-5 py-4">
           <button
             type="button"
-            onClick={() => onChange(DEFAULT_SETTINGS)}
+            onClick={onResetSettings}
             className="w-full rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50"
           >
             恢复默认设置

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { BookmarkItem, FolderNode } from './types';
 
@@ -35,6 +35,25 @@ interface MoveBookmarksDialogProps {
   onConfirm: (folderId: string) => void;
 }
 
+interface ClearLocalDataDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+interface ResetSettingsDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+interface ClearHistoryDialogProps {
+  open: boolean;
+  count: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
 interface FolderOption {
   id: string;
   label: string;
@@ -49,7 +68,12 @@ function DialogShell({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -68,10 +92,16 @@ function DialogShell({
         className="absolute inset-0 bg-stone-900/25"
         onClick={onClose}
       />
-      <section className="relative w-full max-w-md rounded-xl border border-stone-200 bg-white p-5 shadow-xl">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative w-full max-w-md rounded-xl border border-stone-200 bg-white p-5 shadow-xl"
+      >
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="text-base font-semibold text-stone-900">{title}</h2>
+          <h2 id={titleId} className="text-base font-semibold text-stone-900">{title}</h2>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="关闭弹窗"
@@ -314,6 +344,105 @@ export function MoveBookmarksDialog({
             className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {moving ? '移动中...' : '移动'}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function ClearLocalDataDialog({ open, onClose, onConfirm }: ClearLocalDataDialogProps) {
+  if (!open) return null;
+
+  return (
+    <DialogShell title="清理本地数据" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="text-sm font-medium text-stone-800">将恢复默认设置并清空常用/最近记录</div>
+          <div className="mt-1 text-sm leading-6 text-stone-500">
+            浏览器书签不会被删除，也不会修改书签文件夹结构。
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500"
+          >
+            清理
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function ResetSettingsDialog({ open, onClose, onConfirm }: ResetSettingsDialogProps) {
+  if (!open) return null;
+
+  return (
+    <DialogShell title="恢复默认设置" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="text-sm font-medium text-stone-800">将搜索和展示配置恢复为默认值</div>
+          <div className="mt-1 text-sm leading-6 text-stone-500">
+            常用/最近记录和浏览器书签不会被清理。
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700"
+          >
+            恢复
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function ClearHistoryDialog({ open, count, onClose, onConfirm }: ClearHistoryDialogProps) {
+  if (!open) return null;
+
+  return (
+    <DialogShell title="清空打开记录" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="text-sm font-medium text-stone-800">将清空 {count} 条常用/最近打开记录</div>
+          <div className="mt-1 text-sm leading-6 text-stone-500">
+            这只会影响常用书签和最近打开视图，不会删除浏览器书签。
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500"
+          >
+            清空
           </button>
         </div>
       </div>
