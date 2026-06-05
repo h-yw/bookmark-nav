@@ -5,6 +5,9 @@
   "version": "1.1.1",
   "type": "module",
   "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "scripts": {
     "dev": "wxt -b edge",
     "dev:firefox": "wxt -b firefox",
@@ -18,10 +21,12 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
+    "verify": "pnpm compile && pnpm test && pnpm lint && pnpm build && pnpm check:manifest:chrome && pnpm build:firefox && pnpm check:manifest:firefox",
     "check:manifest:chrome": "node scripts/check-release-manifest.cjs \"\" .output/chrome-mv3/manifest.json",
     "check:manifest:firefox": "node scripts/check-release-manifest.cjs \"\" .output/firefox-mv2/manifest.json",
     "check:manifest:release": "node scripts/check-release-manifest.cjs",
     "release:checksums": "node scripts/generate-checksums.cjs",
+    "release:dry-run": "semantic-release --dry-run --no-ci",
     "release": "semantic-release",
     "postinstall": "wxt prepare"
   },
@@ -33,6 +38,7 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "rolldown",
+      "@rolldown/binding-darwin-arm64",
       "@rolldown/binding-darwin-x64"
     ]
   },

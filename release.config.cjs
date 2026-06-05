@@ -1,9 +1,16 @@
+const releaseNotesTemplate = require('./scripts/release-notes-template.cjs');
+
 module.exports = {
   branches: ['main', 'master'],
   tagFormat: 'v${version}',
   plugins: [
     '@semantic-release/commit-analyzer',
-    '@semantic-release/release-notes-generator',
+    [
+      '@semantic-release/release-notes-generator',
+      {
+        writerOpts: releaseNotesTemplate,
+      },
+    ],
     [
       '@semantic-release/exec',
       {

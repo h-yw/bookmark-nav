@@ -37,6 +37,8 @@ site:github.com react   # 只搜索 github.com 域名下的书签
 
 ### 开发模式
 
+项目要求 Node.js `>=22.14.0`，CI 会读取 `.nvmrc` 保持版本一致。
+
 ```bash
 pnpm install
 pnpm dev
@@ -65,6 +67,8 @@ pnpm test         # 运行 Vitest
 pnpm test:watch   # 监听模式运行测试
 pnpm lint         # Biome 检查
 pnpm lint:fix     # 自动修复可修复问题
+pnpm verify       # 完整验证：类型检查、测试、lint、Chrome/Firefox 构建和 manifest 检查
+pnpm release:dry-run # 检查 semantic-release 配置和发布分析，不创建 tag/release
 ```
 
 ## CI/CD 与发布
@@ -104,6 +108,8 @@ chore: 调整构建配置
 - `.output/checksums.txt`
 
 semantic-release 会在发布时把 `package.json` 写入新版本号，再执行 `pnpm zip` 和 `pnpm zip:firefox`，随后校验 manifest 并生成 zip 文件的 SHA-256 校验和。Chrome 扩展 manifest 的版本号必须是 `X.Y.Z` 数字段格式，因此当前 release 配置只启用稳定分支，不启用 `beta` / `alpha` 预发布分支。
+
+正式发布前，release job 会先运行 `pnpm release:dry-run` 检查 semantic-release 配置、远端 tag、提交分析和 release notes 生成流程。
 
 Dependabot 每周检查 npm 依赖和 GitHub Actions 更新，并按 semantic-release、WXT、测试工具等分组创建 PR。
 
@@ -152,14 +158,23 @@ entrypoints/
 
 更多需求细节见 [docs/spec.md](docs/spec.md)。
 
+GitHub Actions 和发布流程说明见 [docs/ci-cd-release.md](docs/ci-cd-release.md)。
+
 发布故障排查见 [docs/release-troubleshooting.md](docs/release-troubleshooting.md)。
 
 ## 验证要求
 
-改动后至少运行：
+改动后推荐运行完整验证：
+
+```bash
+pnpm verify
+```
+
+如果只改了局部内容，至少运行：
 
 ```bash
 pnpm build
+pnpm check:manifest:chrome
 ```
 
 并检查 `.output/chrome-mv3/manifest.json`：

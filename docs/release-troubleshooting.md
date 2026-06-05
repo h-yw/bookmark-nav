@@ -88,6 +88,32 @@ git log --oneline v1.1.1..origin/main
 
 如果没有提交，或者只有 `docs:`、`chore:` 这类默认不触发发布的提交，就不会产生新 tag。
 
+## release dry-run 提示 Node 版本过低
+
+典型错误：
+
+```text
+node version ^22.14.0 || >= 24.10.0 is required
+```
+
+项目使用 semantic-release 25，要求 Node.js `>=22.14.0`。CI 会读取 `.nvmrc`，本地需要切换到同一版本后再运行：
+
+```bash
+nvm install
+nvm use
+pnpm release:dry-run
+```
+
+## release dry-run 提示没有 GitHub token
+
+典型错误：
+
+```text
+ENOGHTOKEN No GitHub token specified
+```
+
+`@semantic-release/github` 在 dry-run 中也会执行鉴权检查。本地运行时需要先设置 `GH_TOKEN` 或 `GITHUB_TOKEN`。GitHub Actions 中的 release job 已注入 `secrets.GITHUB_TOKEN`，因此这个错误通常只影响本地 dry-run。
+
 ## Firefox 数据收集提示
 
 当前 WXT 配置压制了 Firefox 数据收集 warning。正式上架 Firefox 前，需要按 Mozilla 最新政策复核并声明数据收集情况。
