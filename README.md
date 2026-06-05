@@ -152,6 +152,8 @@ entrypoints/
 
 更多需求细节见 [docs/spec.md](docs/spec.md)。
 
+发布故障排查见 [docs/release-troubleshooting.md](docs/release-troubleshooting.md)。
+
 ## 验证要求
 
 改动后至少运行：
