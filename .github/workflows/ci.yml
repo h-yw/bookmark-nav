@@ -55,43 +55,13 @@ jobs:
         run: pnpm build
 
       - name: Check Chrome manifest
-        run: |
-          node <<'NODE'
-          const manifest = require('./.output/chrome-mv3/manifest.json');
-          const permissions = manifest.permissions ?? [];
-          const expected = ['bookmarks'];
-
-          if (JSON.stringify(permissions) !== JSON.stringify(expected)) {
-            throw new Error(`Unexpected permissions: ${JSON.stringify(permissions)}`);
-          }
-
-          if (manifest.content_scripts) {
-            throw new Error('content_scripts must not be declared');
-          }
-
-          console.log('Manifest permissions OK');
-          NODE
+        run: node scripts/check-release-manifest.cjs "" .output/chrome-mv3/manifest.json
 
       - name: Build Firefox
         run: pnpm build:firefox
 
       - name: Check Firefox manifest
-        run: |
-          node <<'NODE'
-          const manifest = require('./.output/firefox-mv2/manifest.json');
-          const permissions = manifest.permissions ?? [];
-          const expected = ['bookmarks'];
-
-          if (JSON.stringify(permissions) !== JSON.stringify(expected)) {
-            throw new Error(`Unexpected permissions: ${JSON.stringify(permissions)}`);
-          }
-
-          if (manifest.content_scripts) {
-            throw new Error('content_scripts must not be declared');
-          }
-
-          console.log('Firefox manifest permissions OK');
-          NODE
+        run: node scripts/check-release-manifest.cjs "" .output/firefox-mv2/manifest.json
 
       - name: Upload Chrome MV3 build
         uses: actions/upload-artifact@v4

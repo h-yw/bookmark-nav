@@ -91,3 +91,15 @@ git log --oneline v1.1.1..origin/main
 ## Firefox 数据收集提示
 
 当前 WXT 配置压制了 Firefox 数据收集 warning。正式上架 Firefox 前，需要按 Mozilla 最新政策复核并声明数据收集情况。
+
+## manifest 权限检查失败
+
+CI 和 release 共用 `scripts/check-release-manifest.cjs` 检查扩展权限：
+
+```bash
+node scripts/check-release-manifest.cjs "" .output/chrome-mv3/manifest.json
+node scripts/check-release-manifest.cjs "" .output/firefox-mv2/manifest.json
+node scripts/check-release-manifest.cjs 1.1.1
+```
+
+该脚本会确保权限只有 `bookmarks`，且没有声明 `content_scripts`。传入版本号时，还会校验 manifest version。
