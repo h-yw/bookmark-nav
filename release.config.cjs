@@ -8,7 +8,7 @@ module.exports = {
       '@semantic-release/exec',
       {
         prepareCmd:
-          'node scripts/set-release-version.cjs ${nextRelease.version} && pnpm zip && pnpm zip:firefox && node scripts/check-release-manifest.cjs ${nextRelease.version}',
+          'node scripts/set-release-version.cjs ${nextRelease.version} && pnpm zip && pnpm zip:firefox && node scripts/check-release-manifest.cjs ${nextRelease.version} && node scripts/generate-checksums.cjs',
       },
     ],
     [
@@ -25,6 +25,7 @@ module.exports = {
           { path: '.output/*chrome.zip', label: 'Chrome MV3 extension' },
           { path: '.output/*firefox.zip', label: 'Firefox extension' },
           { path: '.output/*sources.zip', label: 'Firefox source archive' },
+          { path: '.output/checksums.txt', label: 'SHA-256 checksums' },
         ],
       },
     ],
