@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm compile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Check extension manifest
+        run: |
+          node <<'NODE'
+          const manifest = require('./.output/chrome-mv3/manifest.json');
+          const permissions = manifest.permissions ?? [];
+          const expected = ['bookmarks'];
+
+          if (JSON.stringify(permissions) !== JSON.stringify(expected)) {
+            throw new Error(`Unexpected permissions: ${JSON.stringify(permissions)}`);
+          }
+
+          if (manifest.content_scripts) {
+            throw new Error('content_scripts must not be declared');
+          }
+
+          console.log('Manifest permissions OK');
+          NODE
+
+      - name: Upload Chrome MV3 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-mv3
+          path: .output/chrome-mv3/
+          if-no-files-found: error
+
