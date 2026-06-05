@@ -54,7 +54,7 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Check extension manifest
+      - name: Check Chrome manifest
         run: |
           node <<'NODE'
           const manifest = require('./.output/chrome-mv3/manifest.json');
@@ -72,12 +72,42 @@ jobs:
           console.log('Manifest permissions OK');
           NODE
 
+      - name: Build Firefox
+        run: pnpm build:firefox
+
+      - name: Check Firefox manifest
+        run: |
+          node <<'NODE'
+          const manifest = require('./.output/firefox-mv2/manifest.json');
+          const permissions = manifest.permissions ?? [];
+          const expected = ['bookmarks'];
+
+          if (JSON.stringify(permissions) !== JSON.stringify(expected)) {
+            throw new Error(`Unexpected permissions: ${JSON.stringify(permissions)}`);
+          }
+
+          if (manifest.content_scripts) {
+            throw new Error('content_scripts must not be declared');
+          }
+
+          console.log('Firefox manifest permissions OK');
+          NODE
+
       - name: Upload Chrome MV3 build
         uses: actions/upload-artifact@v4
         with:
           name: chrome-mv3
           path: .output/chrome-mv3/
           if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Firefox MV2 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-mv2
+          path: .output/firefox-mv2/
+          if-no-files-found: error
+          retention-days: 7
 
   release:
     name: Semantic release

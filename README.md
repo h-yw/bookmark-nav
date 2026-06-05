@@ -71,7 +71,7 @@ pnpm lint:fix     # 自动修复可修复问题
 
 仓库使用一条 GitHub Actions 工作流完成 CI/CD：
 
-- `quality` job：在 PR 以及 `main` / `master` push 时运行 PR 标题校验、类型检查、测试、lint、生产构建和 manifest 权限检查，并上传 Chrome MV3 构建产物。
+- `quality` job：在 PR 以及 `main` / `master` push 时运行 PR 标题校验、类型检查、测试、lint、Chrome/Firefox 生产构建和 manifest 权限检查，并上传保留 7 天的 Chrome MV3 / Firefox MV2 构建产物。
 - `release` job：仅在 `main` / `master` push 时运行，等待 `quality` 通过后执行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。手动触发只运行质量检查，不发布版本。
 
 提交信息需要遵循 Conventional Commits：
