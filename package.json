@@ -18,6 +18,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
+    "check:manifest:chrome": "node scripts/check-release-manifest.cjs \"\" .output/chrome-mv3/manifest.json",
+    "check:manifest:firefox": "node scripts/check-release-manifest.cjs \"\" .output/firefox-mv2/manifest.json",
+    "check:manifest:release": "node scripts/check-release-manifest.cjs",
+    "release:checksums": "node scripts/generate-checksums.cjs",
     "release": "semantic-release",
     "postinstall": "wxt prepare"
   },

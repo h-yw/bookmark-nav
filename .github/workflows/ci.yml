@@ -55,13 +55,13 @@ jobs:
         run: pnpm build
 
       - name: Check Chrome manifest
-        run: node scripts/check-release-manifest.cjs "" .output/chrome-mv3/manifest.json
+        run: pnpm check:manifest:chrome
 
       - name: Build Firefox
         run: pnpm build:firefox
 
       - name: Check Firefox manifest
-        run: node scripts/check-release-manifest.cjs "" .output/firefox-mv2/manifest.json
+        run: pnpm check:manifest:firefox
 
       - name: Upload Chrome MV3 build
         uses: actions/upload-artifact@v4

@@ -8,7 +8,7 @@ module.exports = {
       '@semantic-release/exec',
       {
         prepareCmd:
-          'node scripts/set-release-version.cjs ${nextRelease.version} && pnpm zip && pnpm zip:firefox && node scripts/check-release-manifest.cjs ${nextRelease.version} && node scripts/generate-checksums.cjs',
+          'node scripts/set-release-version.cjs ${nextRelease.version} && pnpm zip && pnpm zip:firefox && pnpm check:manifest:release ${nextRelease.version} && pnpm release:checksums',
       },
     ],
     [

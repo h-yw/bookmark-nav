@@ -97,9 +97,9 @@ git log --oneline v1.1.1..origin/main
 CI 和 release 共用 `scripts/check-release-manifest.cjs` 检查扩展权限：
 
 ```bash
-node scripts/check-release-manifest.cjs "" .output/chrome-mv3/manifest.json
-node scripts/check-release-manifest.cjs "" .output/firefox-mv2/manifest.json
-node scripts/check-release-manifest.cjs 1.1.1
+pnpm check:manifest:chrome
+pnpm check:manifest:firefox
+pnpm check:manifest:release 1.1.1
 ```
 
 该脚本会确保权限只有 `bookmarks`，且没有声明 `content_scripts`。传入版本号时，还会校验 manifest version。
