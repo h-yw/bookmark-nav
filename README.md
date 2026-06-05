@@ -69,10 +69,10 @@ pnpm lint:fix     # 自动修复可修复问题
 
 ## CI/CD 与发布
 
-仓库包含两条 GitHub Actions 工作流：
+仓库使用一条 GitHub Actions 工作流完成 CI/CD：
 
-- `CI`：在 PR 以及 `main` / `master` push 时运行类型检查、测试、lint、生产构建和 manifest 权限检查，并上传 Chrome MV3 构建产物。
-- `Release`：在 `main` / `master` push 后运行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。
+- `quality` job：在 PR 以及 `main` / `master` push 时运行类型检查、测试、lint、生产构建和 manifest 权限检查，并上传 Chrome MV3 构建产物。
+- `release` job：在 `main` / `master` push 或手动触发时，等待 `quality` 通过后运行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。
 
 提交信息需要遵循 Conventional Commits：
 
@@ -90,6 +90,12 @@ chore: 调整构建配置
 - 含 `BREAKING CHANGE:` 的提交触发 major 版本
 - `docs:`、`chore:` 等默认不会触发发布
 
+当前版本线以远端 `v1.0.0` tag 为基准。后续示例：
+
+- `fix:` 触发 `1.0.1`
+- `feat:` 触发 `1.1.0`
+- breaking change 触发 `2.0.0`
+
 发布产物：
 
 - `.output/*chrome.zip`
@@ -97,8 +103,6 @@ chore: 调整构建配置
 - `.output/*sources.zip`
 
 semantic-release 会在发布时把 `package.json` 写入新版本号，再执行 `pnpm zip` 和 `pnpm zip:firefox`。Chrome 扩展 manifest 的版本号必须是 `X.Y.Z` 数字段格式，因此当前 release 配置只启用稳定分支，不启用 `beta` / `alpha` 预发布分支。
-
-首次启用 semantic-release 时，如果希望从当前 `0.1.0` 继续递增，需要先在当前基准提交创建并推送 `v0.1.0` tag。否则 semantic-release 在没有历史 release tag 时会按首次发布规则计算版本。
 
 ## 技术栈
 
