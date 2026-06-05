@@ -2,7 +2,6 @@ export type SearchEngineId = 'google' | 'bing' | 'duckduckgo' | 'baidu';
 export type SearchMode = 'bookmarks' | 'web';
 export type BookmarkScope = 'direct' | 'nested';
 export type CardDensity = 'comfortable' | 'compact';
-export type FaviconSource = 'site' | 'duckduckgo';
 
 export interface AppSettings {
   defaultSearchMode: SearchMode;
@@ -10,7 +9,6 @@ export interface AppSettings {
   noResultWebSearch: boolean;
   bookmarkScope: BookmarkScope;
   cardDensity: CardDensity;
-  faviconSource: FaviconSource;
 }
 
 export interface SearchEngine {
@@ -33,7 +31,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   noResultWebSearch: true,
   bookmarkScope: 'direct',
   cardDensity: 'comfortable',
-  faviconSource: 'site',
 };
 
 function isSearchMode(value: unknown): value is SearchMode {
@@ -50,10 +47,6 @@ function isBookmarkScope(value: unknown): value is BookmarkScope {
 
 function isCardDensity(value: unknown): value is CardDensity {
   return value === 'comfortable' || value === 'compact';
-}
-
-function isFaviconSource(value: unknown): value is FaviconSource {
-  return value === 'site' || value === 'duckduckgo';
 }
 
 function normalizeSettings(value: unknown): AppSettings {
@@ -77,9 +70,6 @@ function normalizeSettings(value: unknown): AppSettings {
     cardDensity: isCardDensity(input.cardDensity)
       ? input.cardDensity
       : DEFAULT_SETTINGS.cardDensity,
-    faviconSource: isFaviconSource(input.faviconSource)
-      ? input.faviconSource
-      : DEFAULT_SETTINGS.faviconSource,
   };
 }
 

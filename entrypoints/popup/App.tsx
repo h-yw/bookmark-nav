@@ -1,16 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { BookmarkItem } from '../components/types.ts';
-import { flattenBookmarks, filterBookmarks } from '../components/bookmarks.ts';
-import { getFaviconUrl } from '../components/favicon.ts';
-
-function simplifyUrl(url: string): string {
-  try {
-    const { hostname } = new URL(url);
-    return hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
+import type { BookmarkItem } from '../components/types';
+import { flattenBookmarks, filterBookmarks } from '../components/bookmarks';
+import { getFaviconUrl, getDuckDuckGoFaviconUrl } from '../components/favicon';
+import { simplifyUrl, openUrl } from '../components/utils';
 
 export default function App() {
   const [allBookmarks, setAllBookmarks] = useState<BookmarkItem[]>([]);
@@ -37,11 +29,7 @@ export default function App() {
   }, [allBookmarks, query]);
 
   const handleClick = (url: string) => {
-    try {
-      chrome.tabs.update({ url });
-    } catch {
-      window.open(url, '_blank');
-    }
+    openUrl(url);
     window.close();
   };
 
@@ -98,8 +86,9 @@ export default function App() {
 }
 
 function PopupBookmarkItem({ bookmark, onClick }: { bookmark: BookmarkItem; onClick: (url: string) => void }) {
-  const favicon = getFaviconUrl(bookmark.url);
   const [imgError, setImgError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const favicon = useFallback ? getDuckDuckGoFaviconUrl(bookmark.url) : getFaviconUrl(bookmark.url);
 
   return (
     <button
@@ -108,7 +97,13 @@ function PopupBookmarkItem({ bookmark, onClick }: { bookmark: BookmarkItem; onCl
     >
       <div className="w-6 h-6 rounded-lg bg-stone-50 flex items-center justify-center shrink-0 border border-stone-200">
         {favicon && !imgError ? (
-          <img src={favicon} alt="" className="w-4 h-4" onError={() => setImgError(true)} />
+          <img src={favicon} alt="" className="w-4 h-4" onError={() => {
+            if (!useFallback) {
+              setUseFallback(true);
+            } else {
+              setImgError(true);
+            }
+          }} />
         ) : (
           <svg className="w-3 h-3 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />

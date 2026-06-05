@@ -1,24 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { BookmarkItem } from './types';
-import { getFaviconUrl } from './favicon';
-import type { CardDensity, FaviconSource } from './settings';
+import { getFaviconUrl, getDuckDuckGoFaviconUrl } from './favicon';
+import type { CardDensity } from './settings';
+import { simplifyUrl, openUrl } from './utils';
 
 interface BookmarkCardProps {
   bookmark: BookmarkItem;
   showFolderPath?: boolean;
   density?: CardDensity;
-  faviconSource?: FaviconSource;
   selected?: boolean;
   onOpen?: (bookmark: BookmarkItem) => void;
-}
-
-function simplifyUrl(url: string): string {
-  try {
-    const { hostname } = new URL(url);
-    return hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
 }
 
 function getFolderLabel(folderPath: string[]): string {
@@ -37,38 +28,20 @@ export function BookmarkCard({
   bookmark,
   showFolderPath = false,
   density = 'comfortable',
-  faviconSource = 'site',
   selected = false,
   onOpen,
 }: BookmarkCardProps) {
-  const [activeFaviconSource, setActiveFaviconSource] = useState(faviconSource);
   const [imgError, setImgError] = useState(false);
-  const favicon = getFaviconUrl(bookmark.url, activeFaviconSource);
+  const [useFallback, setUseFallback] = useState(false);
+  const favicon = useFallback ? getDuckDuckGoFaviconUrl(bookmark.url) : getFaviconUrl(bookmark.url);
   const compact = density === 'compact';
-
-  useEffect(() => {
-    setActiveFaviconSource(faviconSource);
-    setImgError(false);
-  }, [bookmark.url, faviconSource]);
-
-  const handleImageError = () => {
-    if (activeFaviconSource === 'site') {
-      setActiveFaviconSource('duckduckgo');
-      return;
-    }
-    setImgError(true);
-  };
 
   const handleClick = () => {
     if (onOpen) {
       onOpen(bookmark);
       return;
     }
-    try {
-      chrome.tabs.update({ url: bookmark.url });
-    } catch {
-      window.open(bookmark.url, '_blank');
-    }
+    openUrl(bookmark.url);
   };
 
   return (
@@ -89,7 +62,13 @@ export function BookmarkCard({
               src={favicon}
               alt=""
               className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
-              onError={handleImageError}
+              onError={() => {
+                if (!useFallback) {
+                  setUseFallback(true);
+                } else {
+                  setImgError(true);
+                }
+              }}
             />
           ) : (
             <FallbackIcon />

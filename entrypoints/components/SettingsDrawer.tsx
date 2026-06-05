@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { AppSettings, CardDensity, FaviconSource, SearchEngineId, SearchMode } from './settings';
+import type { AppSettings, CardDensity, SearchEngineId, SearchMode } from './settings';
 import { DEFAULT_SETTINGS, SEARCH_ENGINES } from './settings';
 
 interface SettingsDrawerProps {
@@ -154,19 +154,6 @@ export function SettingsDrawer({
                 options={[
                   { value: 'comfortable', label: '舒适' },
                   { value: 'compact', label: '紧凑' },
-                ]}
-              />
-            </Field>
-            <Field
-              label="网站图标来源"
-              hint="外部图标服务会向 DuckDuckGo 请求站点图标；网站 favicon 不会请求第三方。"
-            >
-              <Segment<FaviconSource>
-                value={settings.faviconSource}
-                onChange={(value) => update({ faviconSource: value })}
-                options={[
-                  { value: 'site', label: '网站 favicon' },
-                  { value: 'duckduckgo', label: '外部服务' },
                 ]}
               />
             </Field>

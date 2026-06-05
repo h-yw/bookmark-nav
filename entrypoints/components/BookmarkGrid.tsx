@@ -1,13 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { BookmarkItem } from './types';
 import { BookmarkCard } from './BookmarkCard';
-import type { CardDensity, FaviconSource } from './settings';
+import type { CardDensity } from './settings';
 
 interface BookmarkGridProps {
   bookmarks: BookmarkItem[];
   isSearching?: boolean;
   density?: CardDensity;
-  faviconSource?: FaviconSource;
   selectedBookmarkId?: string | null;
   onOpenBookmark?: (bookmark: BookmarkItem) => void;
 }
@@ -43,7 +42,6 @@ export function BookmarkGrid({
   bookmarks,
   isSearching = false,
   density = 'comfortable',
-  faviconSource = 'site',
   selectedBookmarkId = null,
   onOpenBookmark,
 }: BookmarkGridProps) {
@@ -76,7 +74,6 @@ export function BookmarkGrid({
             bookmark={b}
             showFolderPath={isSearching}
             density={density}
-            faviconSource={faviconSource}
             selected={selectedBookmarkId === b.id}
             onOpen={onOpenBookmark}
           />

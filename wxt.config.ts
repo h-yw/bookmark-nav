@@ -16,7 +16,7 @@ export default defineConfig({
   }),
   webExt: {
     binaries: {
-      edge: '/Applications/Microsoft Edge Dev.app/Contents/MacOS/Microsoft Edge Dev',
+      edge: process.env.EDGE_BINARY ?? '/Applications/Microsoft Edge Dev.app/Contents/MacOS/Microsoft Edge Dev',
     },
   },
 });

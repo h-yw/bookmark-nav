@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { ReactNode } from 'react';
+import type { ViewMode } from './types';
 import type { SearchEngineId, SearchMode } from './settings';
 import { SEARCH_ENGINES } from './settings';
-
-type ViewMode = 'folder' | 'frequent' | 'recent';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
