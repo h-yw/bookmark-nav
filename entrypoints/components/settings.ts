@@ -49,7 +49,7 @@ function isCardDensity(value: unknown): value is CardDensity {
   return value === 'comfortable' || value === 'compact';
 }
 
-function normalizeSettings(value: unknown): AppSettings {
+export function normalizeSettings(value: unknown): AppSettings {
   if (!value || typeof value !== 'object') return DEFAULT_SETTINGS;
   const input = value as Partial<AppSettings>;
 

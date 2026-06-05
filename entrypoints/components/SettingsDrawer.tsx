@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { AppSettings, CardDensity, SearchEngineId, SearchMode } from './settings';
 import { DEFAULT_SETTINGS, SEARCH_ENGINES } from './settings';
@@ -9,6 +10,9 @@ interface SettingsDrawerProps {
   onClose: () => void;
   onChange: (settings: AppSettings) => void;
   onClearHistory: () => void;
+  onExportData: () => void;
+  onImportData: (file: File) => void;
+  onClearLocalData: () => void;
 }
 
 function SettingGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -66,7 +70,12 @@ export function SettingsDrawer({
   onClose,
   onChange,
   onClearHistory,
+  onExportData,
+  onImportData,
+  onClearLocalData,
 }: SettingsDrawerProps) {
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   if (!open) return null;
 
   const update = (patch: Partial<AppSettings>) => onChange({ ...settings, ...patch });
@@ -175,6 +184,46 @@ export function SettingsDrawer({
                   清空
                 </button>
               </div>
+            </div>
+            <div className="rounded-lg border border-stone-200 bg-white px-3 py-3">
+              <div className="mb-3">
+                <div className="text-sm text-stone-700">本地数据</div>
+                <div className="mt-0.5 text-xs leading-5 text-stone-400">导出或恢复设置和常用/最近记录，不包含浏览器书签。</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={onExportData}
+                  className="rounded-lg border border-stone-200 px-3 py-2 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                >
+                  导出数据
+                </button>
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="rounded-lg border border-stone-200 px-3 py-2 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                >
+                  导入数据
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={onClearLocalData}
+                className="mt-2 w-full rounded-lg border border-red-100 px-3 py-2 text-xs text-red-600 transition-colors hover:bg-red-50"
+              >
+                清理本地数据
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) onImportData(file);
+                }}
+              />
             </div>
           </SettingGroup>
         </div>

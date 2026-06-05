@@ -11,7 +11,7 @@ export interface BookmarkUsage {
 const HISTORY_STORAGE_KEY = 'bookmark-nav.bookmark-history';
 const MAX_HISTORY_ITEMS = 500;
 
-function normalize(value: unknown): BookmarkUsage[] {
+export function normalizeBookmarkHistory(value: unknown): BookmarkUsage[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is BookmarkUsage => {
     if (!item || typeof item !== 'object') return false;
@@ -28,7 +28,7 @@ function normalize(value: unknown): BookmarkUsage[] {
 
 export function loadBookmarkHistory(): BookmarkUsage[] {
   try {
-    return normalize(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) ?? '[]'));
+    return normalizeBookmarkHistory(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) ?? '[]'));
   } catch {
     return [];
   }

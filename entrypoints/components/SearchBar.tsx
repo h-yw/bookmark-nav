@@ -140,7 +140,7 @@ export function SearchBar({
         : '没有匹配的书签'
       : value && resultCount !== undefined
         ? `找到 ${resultCount} 个书签`
-        : '输入关键词筛选书签，或用 @文件夹 限定范围'
+        : '支持多关键词、-排除、site:域名、@文件夹'
     : `使用 ${selectedEngine.label} 搜索网页`;
 
   const primaryAction = mode === 'bookmarks'
