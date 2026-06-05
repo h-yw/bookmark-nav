@@ -99,3 +99,10 @@ export function getHistoryBookmarks(
 
   return result;
 }
+
+export function pruneBookmarkHistory(bookmarks: BookmarkItem[], history: BookmarkUsage[]): BookmarkUsage[] {
+  const validIds = new Set(bookmarks.map((bookmark) => bookmark.id));
+  const validUrls = new Set(bookmarks.map((bookmark) => bookmark.url));
+
+  return history.filter((usage) => validIds.has(usage.id) || validUrls.has(usage.url));
+}

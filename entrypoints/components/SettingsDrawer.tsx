@@ -136,7 +136,7 @@ export function SettingsDrawer({
             </label>
           </SettingGroup>
 
-          <SettingGroup title="书签展示">
+          <SettingGroup title="展示">
             <Field label="文件夹范围">
               <Segment
                 value={settings.bookmarkScope}
@@ -159,7 +159,7 @@ export function SettingsDrawer({
             </Field>
           </SettingGroup>
 
-          <SettingGroup title="历史记录">
+          <SettingGroup title="数据">
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>

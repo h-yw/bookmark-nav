@@ -5,7 +5,7 @@ import {
   getBookmarksInFolder,
   filterBookmarks,
 } from '../bookmarks';
-import { BookmarkItem } from '../types';
+import type { BookmarkItem } from '../types';
 
 type Node = chrome.bookmarks.BookmarkTreeNode;
 
@@ -188,5 +188,98 @@ describe('filterBookmarks', () => {
 
   it('returns empty for no match', () => {
     expect(filterBookmarks(bookmarks, 'zzz')).toHaveLength(0);
+  });
+
+  it('sorts title matches before domain and url matches', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'Docs',
+        url: 'https://github.com/docs',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'GitHub',
+        url: 'https://example.com',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '3',
+        title: 'Tools',
+        url: 'https://example.com/github-tools',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, 'github').map((b) => b.id)).toEqual(['2', '1', '3']);
+  });
+
+  it('matches folder path with lower priority', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React',
+        url: 'https://react.dev',
+        folderPath: ['学习资料'],
+        folderIdPath: ['10'],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: '学习资料',
+        url: 'https://example.com',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, '学习资料').map((b) => b.id)).toEqual(['2', '1']);
+  });
+
+  it('filters by leading folder token', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React',
+        url: 'https://react.dev',
+        folderPath: ['学习资料'],
+        folderIdPath: ['10'],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'React',
+        url: 'https://react.example.com',
+        folderPath: ['工作资料'],
+        folderIdPath: ['20'],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, '@学习').map((b) => b.id)).toEqual(['1']);
+    expect(filterBookmarks(items, '@学习 react').map((b) => b.id)).toEqual(['1']);
+  });
+
+  it('returns empty when folder token does not match', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React',
+        url: 'https://react.dev',
+        folderPath: ['学习资料'],
+        folderIdPath: ['10'],
+        dateAdded: 0,
+      },
+    ];
+
+    expect(filterBookmarks(items, '@工作 react')).toHaveLength(0);
   });
 });

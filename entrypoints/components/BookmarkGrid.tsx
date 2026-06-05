@@ -1,14 +1,19 @@
 import { useEffect, useRef } from 'react';
 import type { BookmarkItem } from './types';
-import { BookmarkCard } from './BookmarkCard';
+import { BookmarkCard, type BookmarkCardAction } from './BookmarkCard';
 import type { CardDensity } from './settings';
 
 interface BookmarkGridProps {
   bookmarks: BookmarkItem[];
   isSearching?: boolean;
+  searchQuery?: string;
+  searchEngineLabel?: string;
+  noResultWebSearch?: boolean;
   density?: CardDensity;
   selectedBookmarkId?: string | null;
   onOpenBookmark?: (bookmark: BookmarkItem) => void;
+  onBookmarkAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
+  onWebSearch?: (query: string) => void;
 }
 
 const CARD_WIDTH: Record<CardDensity, string> = {
@@ -16,7 +21,21 @@ const CARD_WIDTH: Record<CardDensity, string> = {
   compact: 'clamp(136px, calc((100% - 16px) / 2), 188px)',
 };
 
-function EmptyState({ isSearching }: { isSearching: boolean }) {
+function EmptyState({
+  isSearching,
+  searchQuery,
+  searchEngineLabel = 'Google',
+  noResultWebSearch = false,
+  onWebSearch,
+}: {
+  isSearching: boolean;
+  searchQuery: string;
+  searchEngineLabel?: string;
+  noResultWebSearch?: boolean;
+  onWebSearch?: (query: string) => void;
+}) {
+  const canWebSearch = isSearching && searchQuery.trim() && noResultWebSearch && onWebSearch;
+
   return (
     <div role="status" aria-live="polite" className="flex flex-1 flex-col items-center justify-center px-6 text-center text-stone-400">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-200 bg-white shadow-sm">
@@ -34,6 +53,15 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
       {isSearching && (
         <p className="mt-1 text-xs text-stone-400">换个关键词试试</p>
       )}
+      {canWebSearch && (
+        <button
+          type="button"
+          onClick={() => onWebSearch(searchQuery)}
+          className="mt-4 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
+        >
+          使用 {searchEngineLabel} 搜索网页
+        </button>
+      )}
     </div>
   );
 }
@@ -41,9 +69,14 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
 export function BookmarkGrid({
   bookmarks,
   isSearching = false,
+  searchQuery = '',
+  searchEngineLabel,
+  noResultWebSearch = false,
   density = 'comfortable',
   selectedBookmarkId = null,
   onOpenBookmark,
+  onBookmarkAction,
+  onWebSearch,
 }: BookmarkGridProps) {
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -56,7 +89,15 @@ export function BookmarkGrid({
   }, [selectedBookmarkId]);
 
   if (bookmarks.length === 0) {
-    return <EmptyState isSearching={isSearching} />;
+    return (
+      <EmptyState
+        isSearching={isSearching}
+        searchQuery={searchQuery}
+        searchEngineLabel={searchEngineLabel}
+        noResultWebSearch={noResultWebSearch}
+        onWebSearch={onWebSearch}
+      />
+    );
   }
 
   return (
@@ -76,6 +117,7 @@ export function BookmarkGrid({
             density={density}
             selected={selectedBookmarkId === b.id}
             onOpen={onOpenBookmark}
+            onAction={onBookmarkAction}
           />
         </div>
       ))}

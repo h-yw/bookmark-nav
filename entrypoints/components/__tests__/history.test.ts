@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getHistoryBookmarks, recordBookmarkOpen } from '../history';
+import { getHistoryBookmarks, pruneBookmarkHistory, recordBookmarkOpen } from '../history';
 import type { BookmarkItem } from '../types';
 
 const bookmarks: BookmarkItem[] = [
@@ -41,5 +41,22 @@ describe('bookmark history', () => {
 
     const result = getHistoryBookmarks(bookmarks, history, 'recent');
     expect(result.map((bookmark) => bookmark.id)).toEqual(['3', '2', '1']);
+  });
+
+  it('prunes history items that no longer exist', () => {
+    const history = [
+      { id: '1', title: 'Alpha', url: 'https://alpha.com', count: 2, lastOpened: 200 },
+      { id: 'missing', title: 'Missing', url: 'https://missing.com', count: 1, lastOpened: 100 },
+    ];
+
+    expect(pruneBookmarkHistory(bookmarks, history).map((item) => item.id)).toEqual(['1']);
+  });
+
+  it('keeps history when a bookmark id changed but url still exists', () => {
+    const history = [
+      { id: 'old-id', title: 'Alpha', url: 'https://alpha.com', count: 2, lastOpened: 200 },
+    ];
+
+    expect(pruneBookmarkHistory(bookmarks, history)).toHaveLength(1);
   });
 });

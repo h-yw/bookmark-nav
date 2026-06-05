@@ -1,15 +1,25 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { BookmarkItem, FolderNode, ViewMode } from '../components/types';
-import { flattenBookmarks, buildFolderTree, getBookmarksInFolder, filterBookmarks } from '../components/bookmarks';
+import {
+  flattenBookmarks,
+  buildFolderTree,
+  getBookmarksInFolder,
+  filterBookmarks,
+  removeBookmark,
+  updateBookmark,
+} from '../components/bookmarks';
 import { Sidebar } from '../components/Sidebar';
 import { BookmarkGrid } from '../components/BookmarkGrid';
 import { SearchBar } from '../components/SearchBar';
 import { SettingsDrawer } from '../components/SettingsDrawer';
+import { DeleteBookmarkDialog, EditBookmarkDialog } from '../components/BookmarkManageDialog';
+import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
 import { loadSettings, saveSettings } from '../components/settings';
 import {
   getHistoryBookmarks,
   loadBookmarkHistory,
+  pruneBookmarkHistory,
   recordBookmarkOpen,
   saveBookmarkHistory,
   type BookmarkUsage,
@@ -21,6 +31,13 @@ const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   bing: (query) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
   duckduckgo: (query) => `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
   baidu: (query) => `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
+};
+
+const SEARCH_ENGINES_BY_ID: Record<SearchEngineId, string> = {
+  google: 'Google',
+  bing: 'Bing',
+  duckduckgo: 'DuckDuckGo',
+  baidu: '百度',
 };
 
 function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): FolderNode | null {
@@ -80,6 +97,10 @@ export default function App() {
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
+  const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,15 +111,25 @@ export default function App() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  const loadBookmarks = () => {
-    setLoading(true);
+  const loadBookmarks = useCallback((showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
     try {
       chrome.bookmarks.getTree((tree) => {
         if (!mountedRef.current) return;
         const rootChildren = tree[0]?.children ?? [];
-        setAllBookmarks(flattenBookmarks(rootChildren));
+        const bookmarks = flattenBookmarks(rootChildren);
+        setAllBookmarks(bookmarks);
         setFolders(buildFolderTree(rootChildren));
+        setHistory((currentHistory) => {
+          const nextHistory = pruneBookmarkHistory(bookmarks, currentHistory);
+          if (nextHistory.length !== currentHistory.length) {
+            saveBookmarkHistory(nextHistory);
+          }
+          return nextHistory;
+        });
         setLoading(false);
       });
     } catch {
@@ -107,9 +138,38 @@ export default function App() {
         setLoading(false);
       }
     }
-  };
+  }, []);
 
-  useEffect(() => { loadBookmarks(); }, []);
+  useEffect(() => { loadBookmarks(); }, [loadBookmarks]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    if (!actionError || editingBookmark || deletingBookmark) return;
+    const timer = window.setTimeout(() => setActionError(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [actionError, deletingBookmark, editingBookmark]);
+
+  useEffect(() => {
+    const refreshBookmarks = () => loadBookmarks(false);
+    chrome.bookmarks.onCreated.addListener(refreshBookmarks);
+    chrome.bookmarks.onRemoved.addListener(refreshBookmarks);
+    chrome.bookmarks.onChanged.addListener(refreshBookmarks);
+    chrome.bookmarks.onMoved.addListener(refreshBookmarks);
+    chrome.bookmarks.onChildrenReordered.addListener(refreshBookmarks);
+
+    return () => {
+      chrome.bookmarks.onCreated.removeListener(refreshBookmarks);
+      chrome.bookmarks.onRemoved.removeListener(refreshBookmarks);
+      chrome.bookmarks.onChanged.removeListener(refreshBookmarks);
+      chrome.bookmarks.onMoved.removeListener(refreshBookmarks);
+      chrome.bookmarks.onChildrenReordered.removeListener(refreshBookmarks);
+    };
+  }, [loadBookmarks]);
 
   const handleSettingsChange = (nextSettings: AppSettings) => {
     setSettings(nextSettings);
@@ -142,6 +202,54 @@ export default function App() {
     if (!selected) return false;
     handleOpenBookmark(selected);
     return true;
+  };
+
+  const handleBookmarkAction = async (action: BookmarkCardAction, bookmark: BookmarkItem) => {
+    setActionError(null);
+    setNotice(null);
+
+    if (action === 'copy') {
+      try {
+        await navigator.clipboard.writeText(bookmark.url);
+        setNotice('链接已复制');
+      } catch {
+        setActionError('复制失败，请手动复制链接');
+      }
+      return;
+    }
+
+    if (action === 'edit') {
+      setEditingBookmark(bookmark);
+      return;
+    }
+
+    setDeletingBookmark(bookmark);
+  };
+
+  const handleSaveBookmark = async (input: { title: string; url: string }) => {
+    if (!editingBookmark) return;
+    setActionError(null);
+    try {
+      await updateBookmark(editingBookmark.id, input);
+      setEditingBookmark(null);
+      setNotice('书签已更新');
+      loadBookmarks(false);
+    } catch {
+      setActionError('更新书签失败');
+    }
+  };
+
+  const handleDeleteBookmark = async () => {
+    if (!deletingBookmark) return;
+    setActionError(null);
+    try {
+      await removeBookmark(deletingBookmark.id);
+      setDeletingBookmark(null);
+      setNotice('书签已删除');
+      loadBookmarks(false);
+    } catch {
+      setActionError('删除书签失败');
+    }
   };
 
   const displayedBookmarks = useMemo(() => {
@@ -269,11 +377,39 @@ export default function App() {
         <BookmarkGrid
           bookmarks={displayedBookmarks}
           isSearching={!!searchQuery}
+          searchQuery={searchQuery}
+          searchEngineLabel={SEARCH_ENGINES_BY_ID[settings.searchEngine]}
+          noResultWebSearch={settings.noResultWebSearch}
           density={settings.cardDensity}
           selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
           onOpenBookmark={handleOpenBookmark}
+          onBookmarkAction={handleBookmarkAction}
+          onWebSearch={handleWebSearch}
         />
       </main>
+      {(notice || actionError) && !editingBookmark && !deletingBookmark && (
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700 shadow-lg">
+          {actionError ?? notice}
+        </div>
+      )}
+      <EditBookmarkDialog
+        bookmark={editingBookmark}
+        error={editingBookmark ? actionError : null}
+        onClose={() => {
+          setEditingBookmark(null);
+          setActionError(null);
+        }}
+        onSave={handleSaveBookmark}
+      />
+      <DeleteBookmarkDialog
+        bookmark={deletingBookmark}
+        error={deletingBookmark ? actionError : null}
+        onClose={() => {
+          setDeletingBookmark(null);
+          setActionError(null);
+        }}
+        onConfirm={handleDeleteBookmark}
+      />
       <SettingsDrawer
         open={settingsOpen}
         settings={settings}
