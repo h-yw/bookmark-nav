@@ -3,6 +3,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
+  suppressWarnings: {
+    firefoxDataCollection: true,
+  },
   manifest: {
     name: 'Bookmark Nav',
     description: '浏览器书签导航页 — 将收藏夹变成美观的网址导航',
