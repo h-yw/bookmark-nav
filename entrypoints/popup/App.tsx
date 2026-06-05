@@ -26,7 +26,7 @@ export default function App() {
         setAllBookmarks(flattenBookmarks(rootChildren));
       });
     } catch {
-      if (!cancelled) setError('Failed to load bookmarks');
+      if (!cancelled) setError('书签加载失败');
     }
     return () => { cancelled = true; };
   }, []);
@@ -62,11 +62,11 @@ export default function App() {
           </svg>
           <input
             type="text"
-            placeholder="Search bookmarks..."
+            placeholder="搜索书签..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 bg-transparent text-stone-900 placeholder-stone-400 outline-none text-sm"
-            aria-label="Search bookmarks"
+            aria-label="搜索书签"
             autoFocus
           />
         </div>
@@ -77,8 +77,8 @@ export default function App() {
             <svg className="w-8 h-8 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
-            <p className="text-sm">No results</p>
-            <p className="text-xs text-stone-400">Try a different search term</p>
+            <p className="text-sm">没有结果</p>
+            <p className="text-xs text-stone-400">换个关键词试试</p>
           </div>
         )}
         {!query && (
@@ -86,7 +86,7 @@ export default function App() {
             <svg className="w-8 h-8 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
-            <p className="text-sm">Type to search bookmarks</p>
+            <p className="text-sm">输入关键词搜索书签</p>
           </div>
         )}
         {results.map((b) => (
@@ -108,7 +108,7 @@ function PopupBookmarkItem({ bookmark, onClick }: { bookmark: BookmarkItem; onCl
     >
       <div className="w-6 h-6 rounded-lg bg-stone-50 flex items-center justify-center shrink-0 border border-stone-200">
         {favicon && !imgError ? (
-          <img src={favicon} alt={bookmark.title + ' favicon'} className="w-4 h-4" onError={() => setImgError(true)} />
+          <img src={favicon} alt="" className="w-4 h-4" onError={() => setImgError(true)} />
         ) : (
           <svg className="w-3 h-3 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />

@@ -11,16 +11,16 @@ interface SidebarProps {
 
 export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: SidebarProps) {
   const panel = (
-    <aside aria-label="Bookmark folders" className="flex h-full w-72 shrink-0 flex-col bg-[#FAFAF8] border-r border-stone-200">
+    <aside aria-label="书签文件夹" className="flex h-full w-72 shrink-0 flex-col bg-[#FAFAF8] border-r border-stone-200">
       <div className="flex items-center justify-between px-4 py-4">
         <div>
-          <div className="text-sm font-semibold text-stone-900">Bookmark Nav</div>
-          <div className="text-xs text-stone-400">Folders</div>
+          <div className="text-sm font-semibold text-stone-900">书签导航</div>
+          <div className="text-xs text-stone-400">文件夹</div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close folders"
+          aria-label="关闭文件夹列表"
           className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700 md:hidden"
         >
           <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,10 +41,10 @@ export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: Si
           <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.75 5.25h16.5m-16.5 6h16.5m-16.5 6h16.5" />
           </svg>
-          <span className="truncate">All Bookmarks</span>
+          <span className="truncate">全部书签</span>
         </button>
       </div>
-      <nav aria-label="Folder tree" className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav aria-label="文件夹树" className="flex-1 overflow-y-auto px-3 pb-4">
         {folders.map((folder) => (
           <FolderItem
             key={folder.id}
@@ -65,7 +65,7 @@ export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: Si
         <div className="fixed inset-0 z-30 md:hidden">
           <button
             type="button"
-            aria-label="Close folders overlay"
+            aria-label="关闭文件夹遮罩"
             className="absolute inset-0 bg-stone-900/20"
             onClick={onClose}
           />
@@ -107,7 +107,7 @@ function FolderItem({
         {hasChildren ? (
           <button
             type="button"
-            aria-label={expanded ? `Collapse ${folder.title}` : `Expand ${folder.title}`}
+            aria-label={expanded ? `收起 ${folder.title}` : `展开 ${folder.title}`}
             aria-expanded={expanded}
             className="rounded-md p-1 text-stone-400 transition-colors hover:bg-stone-200/60 hover:text-stone-700"
             onClick={(e) => {

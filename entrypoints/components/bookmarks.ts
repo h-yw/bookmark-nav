@@ -8,7 +8,7 @@ export function flattenBookmarks(
   const result: BookmarkItem[] = [];
 
   for (const node of nodes) {
-    const title = node.title || 'Untitled';
+    const title = node.title || '未命名';
     const currentPath = node.title ? [...folderPath, node.title] : folderPath;
     const currentIdPath = [...folderIdPath, node.id];
 
@@ -43,7 +43,7 @@ export function buildFolderTree(
   for (const node of nodes) {
     if (!node.children) continue;
 
-    const title = node.title || 'Untitled';
+    const title = node.title || '未命名';
     const currentPath = node.title ? [...parentPath, node.title] : parentPath;
     const currentIdPath = [...parentIdPath, node.id];
     const bookmarkCount = node.children.filter((c) => c.url).length;
@@ -62,17 +62,19 @@ export function buildFolderTree(
 
 export function getBookmarksInFolder(
   allBookmarks: BookmarkItem[],
-  folderIdPath: string[]
+  folderIdPath: string[],
+  includeNested = false
 ): BookmarkItem[] {
-  // "All Bookmarks" — return everything
+  // 全部书签：返回所有书签
   if (folderIdPath.length === 0) {
     return allBookmarks;
   }
 
-  // Show bookmarks directly inside the selected folder (not nested subfolders)
+  // 根据设置显示当前文件夹的直接书签，或包含所有子文件夹里的书签
   return allBookmarks.filter((b) => {
-    if (b.folderIdPath.length !== folderIdPath.length) return false;
-    return b.folderIdPath.every((id, i) => id === folderIdPath[i]);
+    if (!includeNested && b.folderIdPath.length !== folderIdPath.length) return false;
+    if (includeNested && b.folderIdPath.length < folderIdPath.length) return false;
+    return folderIdPath.every((id, i) => b.folderIdPath[i] === id);
   });
 }
 

@@ -1,25 +1,18 @@
-import { useRef, useState, useEffect, type RefObject } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import type { BookmarkItem } from './types';
 import { BookmarkCard } from './BookmarkCard';
+import type { CardDensity, FaviconSource } from './settings';
 
 interface BookmarkGridProps {
   bookmarks: BookmarkItem[];
   isSearching?: boolean;
+  density?: CardDensity;
+  faviconSource?: FaviconSource;
 }
 
-const ROW_HEIGHT = 130;
-const GAP = 16;
-const PADDING = 24;
-const MIN_VIRTUALIZE = 50;
-
-function getColumns(width: number): number {
-  if (width < 640) return 2;
-  if (width < 768) return 3;
-  if (width < 1024) return 4;
-  if (width < 1280) return 5;
-  return 6;
-}
+const CARD_WIDTH: Record<CardDensity, string> = {
+  comfortable: 'clamp(150px, calc((100% - 16px) / 2), 220px)',
+  compact: 'clamp(136px, calc((100% - 16px) / 2), 188px)',
+};
 
 function EmptyState({ isSearching }: { isSearching: boolean }) {
   return (
@@ -34,110 +27,41 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
       </svg>
       </div>
       <p className="text-sm text-stone-500">
-        {isSearching ? 'No matching bookmarks found' : 'This folder is empty'}
+        {isSearching ? '没有找到匹配的书签' : '当前文件夹为空'}
       </p>
       {isSearching && (
-        <p className="mt-1 text-xs text-stone-400">Try a different search term</p>
+        <p className="mt-1 text-xs text-stone-400">换个关键词试试</p>
       )}
     </div>
   );
 }
 
-export function BookmarkGrid({ bookmarks, isSearching = false }: BookmarkGridProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [cols, setCols] = useState(2);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setCols(getColumns(entry.contentRect.width));
-      }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+export function BookmarkGrid({
+  bookmarks,
+  isSearching = false,
+  density = 'comfortable',
+  faviconSource = 'site',
+}: BookmarkGridProps) {
   if (bookmarks.length === 0) {
     return <EmptyState isSearching={isSearching} />;
   }
 
-  if (bookmarks.length < MIN_VIRTUALIZE) {
-    return (
-      <div
-        ref={scrollRef}
-        className="grid flex-1 items-start gap-3 overflow-y-auto p-4 sm:gap-4 md:p-8"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {bookmarks.map((b) => (
-          <BookmarkCard key={b.id} bookmark={b} showFolderPath={isSearching} />
-        ))}
-      </div>
-    );
-  }
-
-  const rows = Math.ceil(bookmarks.length / cols);
-
   return (
-    <div ref={scrollRef} className="flex-1 overflow-y-auto">
-      <VirtualizedContent
-        scrollEl={scrollRef}
-        rows={rows}
-        cols={cols}
-        bookmarks={bookmarks}
-        showFolderPath={isSearching}
-      />
-    </div>
-  );
-}
-
-function VirtualizedContent({
-  scrollEl,
-  rows,
-  cols,
-  bookmarks,
-  showFolderPath,
-}: {
-  scrollEl: RefObject<HTMLDivElement | null>;
-  rows: number;
-  cols: number;
-  bookmarks: BookmarkItem[];
-  showFolderPath: boolean;
-}) {
-  const virtualizer = useVirtualizer({
-    count: rows,
-    getScrollElement: () => scrollEl.current,
-    estimateSize: () => ROW_HEIGHT + GAP,
-    overscan: 2,
-  });
-
-  return (
-    <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-      {virtualizer.getVirtualItems().map((vr) => {
-        const start = vr.index * cols;
-        const items = bookmarks.slice(start, start + cols);
-        return (
-          <div
-            key={vr.index}
-            className="grid items-start gap-3 px-4 sm:gap-4 md:px-8"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              transform: `translateY(${vr.start}px)`,
-              paddingTop: vr.index === 0 ? PADDING : GAP / 2,
-              paddingBottom: vr.index === rows - 1 ? PADDING : GAP / 2,
-            }}
-          >
-            {items.map((b) => (
-              <BookmarkCard key={b.id} bookmark={b} showFolderPath={showFolderPath} />
-            ))}
-          </div>
-        );
-      })}
+    <div className="flex flex-1 flex-wrap content-start items-start justify-center gap-3 overflow-y-auto p-4 sm:gap-4 md:p-8">
+      {bookmarks.map((b) => (
+        <div
+          key={b.id}
+          className="shrink-0"
+          style={{ width: CARD_WIDTH[density] }}
+        >
+          <BookmarkCard
+            bookmark={b}
+            showFolderPath={isSearching}
+            density={density}
+            faviconSource={faviconSource}
+          />
+        </div>
+      ))}
     </div>
   );
 }
