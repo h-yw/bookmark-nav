@@ -3,14 +3,21 @@ import type { ReactNode } from 'react';
 import type { SearchEngineId, SearchMode } from './settings';
 import { SEARCH_ENGINES } from './settings';
 
+type ViewMode = 'folder' | 'frequent' | 'recent';
+
 interface SearchBarProps {
   onSearch: (query: string) => void;
-  onOpenFirstBookmark: (query: string) => boolean;
+  onOpenSelectedBookmark: (query: string, index: number) => boolean;
   onWebSearch: (query: string) => void;
   resultCount?: number;
+  selectedIndex: number;
+  onSelectedIndexChange: (index: number) => void;
   title: string;
   subtitle: string;
   totalCount: number;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  historyCount: number;
   defaultMode: SearchMode;
   searchEngine: SearchEngineId;
   noResultWebSearch: boolean;
@@ -21,12 +28,17 @@ interface SearchBarProps {
 
 export function SearchBar({
   onSearch,
-  onOpenFirstBookmark,
+  onOpenSelectedBookmark,
   onWebSearch,
   resultCount,
+  selectedIndex,
+  onSelectedIndexChange,
   title,
   subtitle,
   totalCount,
+  viewMode,
+  onViewModeChange,
+  historyCount,
   defaultMode,
   searchEngine,
   noResultWebSearch,
@@ -69,26 +81,38 @@ export function SearchBar({
           return next;
         });
       }
+      if (document.activeElement === inputRef.current && mode === 'bookmarks' && value && resultCount) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onSelectedIndexChange((selectedIndex + 1) % resultCount);
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onSelectedIndexChange((selectedIndex - 1 + resultCount) % resultCount);
+        }
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onSearch, value]);
+  }, [mode, onSearch, onSelectedIndexChange, resultCount, selectedIndex, value]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const q = e.target.value;
       setValue(q);
       clearTimeout(timerRef.current);
+      onSelectedIndexChange(0);
       if (mode === 'bookmarks') {
         timerRef.current = setTimeout(() => onSearch(q), 200);
       }
     },
-    [mode, onSearch]
+    [mode, onSearch, onSelectedIndexChange]
   );
 
   const handleModeChange = (nextMode: SearchMode) => {
     setMode(nextMode);
     clearTimeout(timerRef.current);
+    onSelectedIndexChange(0);
     onSearch(nextMode === 'bookmarks' ? value : '');
     inputRef.current?.focus();
   };
@@ -97,7 +121,7 @@ export function SearchBar({
     e.preventDefault();
     const q = value.trim();
     if (!q) return;
-    if (mode === 'bookmarks' && onOpenFirstBookmark(q)) return;
+    if (mode === 'bookmarks' && onOpenSelectedBookmark(q, selectedIndex)) return;
     if (mode === 'bookmarks' && !noResultWebSearch) return;
     onWebSearch(q);
   };
@@ -105,6 +129,7 @@ export function SearchBar({
   const handleClear = () => {
     setValue('');
     clearTimeout(timerRef.current);
+    onSelectedIndexChange(0);
     onSearch('');
     inputRef.current?.focus();
   };
@@ -121,7 +146,7 @@ export function SearchBar({
 
   const primaryAction = mode === 'bookmarks'
     ? value && resultCount !== 0
-      ? '打开第一条结果'
+      ? '打开选中结果'
       : noResultWebSearch
         ? '网页搜索'
         : ''
@@ -151,6 +176,17 @@ export function SearchBar({
             <p className="mt-0.5 truncate text-sm text-stone-500">{subtitle}</p>
           </div>
           <SettingsButton onClick={onOpenSettings} className="mt-0.5 h-9 w-9 px-0 lg:hidden" />
+        </div>
+        <div className="flex rounded-lg bg-stone-100 p-0.5 lg:hidden" role="tablist" aria-label="视图切换">
+          <ViewButton active={viewMode === 'folder'} onClick={() => onViewModeChange('folder')}>
+            全部
+          </ViewButton>
+          <ViewButton active={viewMode === 'frequent'} onClick={() => onViewModeChange('frequent')} disabled={historyCount === 0}>
+            常用
+          </ViewButton>
+          <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
+            最近
+          </ViewButton>
         </div>
         <div className="flex w-full items-stretch gap-2 lg:max-w-2xl">
           <form
@@ -240,6 +276,12 @@ export function SearchBar({
             <div className="mt-1 flex min-h-5 items-center justify-between gap-3 rounded-lg bg-stone-50 px-2 py-1 text-[11px] text-stone-400">
               <span className="min-w-0 truncate">{hint}</span>
               <span className="hidden shrink-0 items-center gap-2 sm:flex">
+                {mode === 'bookmarks' && value && resultCount !== undefined && resultCount > 1 && (
+                  <span className="flex items-center gap-1">
+                    <KeyHint>↑↓</KeyHint>
+                    <span>选择</span>
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <KeyHint>/</KeyHint>
                   <span>聚焦</span>
@@ -259,8 +301,48 @@ export function SearchBar({
           </form>
           <SettingsButton onClick={onOpenSettings} className="hidden h-[68px] lg:flex" />
         </div>
+        <div className="hidden rounded-lg bg-stone-100 p-0.5 lg:flex" role="tablist" aria-label="视图切换">
+          <ViewButton active={viewMode === 'folder'} onClick={() => onViewModeChange('folder')}>
+            全部
+          </ViewButton>
+          <ViewButton active={viewMode === 'frequent'} onClick={() => onViewModeChange('frequent')} disabled={historyCount === 0}>
+            常用
+          </ViewButton>
+          <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
+            最近
+          </ViewButton>
+        </div>
       </div>
     </div>
+  );
+}
+
+function ViewButton({
+  active,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? 'bg-white text-stone-900 shadow-sm'
+          : 'text-stone-500 hover:text-stone-700'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -8,6 +8,8 @@ interface BookmarkCardProps {
   showFolderPath?: boolean;
   density?: CardDensity;
   faviconSource?: FaviconSource;
+  selected?: boolean;
+  onOpen?: (bookmark: BookmarkItem) => void;
 }
 
 function simplifyUrl(url: string): string {
@@ -36,6 +38,8 @@ export function BookmarkCard({
   showFolderPath = false,
   density = 'comfortable',
   faviconSource = 'site',
+  selected = false,
+  onOpen,
 }: BookmarkCardProps) {
   const favicon = getFaviconUrl(bookmark.url, faviconSource);
   const [imgError, setImgError] = useState(false);
@@ -46,6 +50,10 @@ export function BookmarkCard({
   }, [favicon]);
 
   const handleClick = () => {
+    if (onOpen) {
+      onOpen(bookmark);
+      return;
+    }
     try {
       chrome.tabs.update({ url: bookmark.url });
     } catch {
@@ -58,7 +66,9 @@ export function BookmarkCard({
       type="button"
       onClick={handleClick}
       title={`${bookmark.title}\n${bookmark.url}`}
-      className={`group flex w-full cursor-pointer flex-col rounded-lg border border-stone-200 bg-white text-left shadow-sm transition-all hover:translate-y-[-1px] hover:border-stone-300 hover:shadow-md focus:outline-none focus-visible:border-stone-400 focus-visible:ring-2 focus-visible:ring-stone-300/70 ${
+      className={`group flex w-full cursor-pointer flex-col rounded-lg border bg-white text-left shadow-sm transition-all hover:translate-y-[-1px] hover:border-stone-300 hover:shadow-md focus:outline-none focus-visible:border-stone-400 focus-visible:ring-2 focus-visible:ring-stone-300/70 ${
+        selected ? 'border-stone-400 ring-2 ring-stone-300/70' : 'border-stone-200'
+      } ${
         compact ? 'p-2.5' : 'p-3'
       }`}
     >

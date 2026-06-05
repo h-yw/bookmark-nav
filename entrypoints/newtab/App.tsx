@@ -7,6 +7,15 @@ import { SearchBar } from '../components/SearchBar';
 import { SettingsDrawer } from '../components/SettingsDrawer';
 import type { AppSettings, SearchEngineId } from '../components/settings';
 import { loadSettings, saveSettings } from '../components/settings';
+import {
+  getHistoryBookmarks,
+  loadBookmarkHistory,
+  recordBookmarkOpen,
+  saveBookmarkHistory,
+  type BookmarkUsage,
+} from '../components/history';
+
+type ViewMode = 'folder' | 'frequent' | 'recent';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -28,12 +37,48 @@ function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): Folde
   return selected;
 }
 
+function getPageTitle(searchQuery: string, viewMode: ViewMode, selectedFolder: FolderNode | null): string {
+  if (searchQuery) return '搜索结果';
+  if (viewMode === 'frequent') return '常用书签';
+  if (viewMode === 'recent') return '最近打开';
+  return selectedFolder?.title ?? '全部书签';
+}
+
+function getPageSubtitle({
+  searchQuery,
+  viewMode,
+  selectedPath,
+  count,
+  includeNested,
+}: {
+  searchQuery: string;
+  viewMode: ViewMode;
+  selectedPath: string[];
+  count: number;
+  includeNested: boolean;
+}): string {
+  if (searchQuery) return `在全部文件夹中搜索“${searchQuery}”`;
+  if (viewMode === 'frequent') {
+    return count > 0 ? `按打开次数排序，共 ${count} 个书签` : '打开几个书签后会自动生成常用列表';
+  }
+  if (viewMode === 'recent') {
+    return count > 0 ? `按最近打开时间排序，共 ${count} 个书签` : '打开书签后会自动记录最近列表';
+  }
+  if (selectedPath.length === 0) return '查看所有已保存的书签';
+  return includeNested
+    ? `当前文件夹及子文件夹包含 ${count} 个书签`
+    : `当前文件夹包含 ${count} 个书签`;
+}
+
 export default function App() {
   const [allBookmarks, setAllBookmarks] = useState<BookmarkItem[]>([]);
   const [folders, setFolders] = useState<FolderNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+  const [history, setHistory] = useState<BookmarkUsage[]>(() => loadBookmarkHistory());
+  const [viewMode, setViewMode] = useState<ViewMode>('folder');
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -80,11 +125,18 @@ export default function App() {
     }
   };
 
-  const handleOpenFirstBookmark = (query: string) => {
+  const handleOpenBookmark = (bookmark: BookmarkItem) => {
+    const nextHistory = recordBookmarkOpen(history, bookmark);
+    setHistory(nextHistory);
+    saveBookmarkHistory(nextHistory);
+    openUrl(bookmark.url);
+  };
+
+  const handleOpenSelectedBookmark = (query: string, index: number) => {
     const matches = query ? filterBookmarks(allBookmarks, query) : displayedBookmarks;
-    const first = matches[0];
-    if (!first) return false;
-    openUrl(first.url);
+    const selected = matches[Math.min(index, matches.length - 1)];
+    if (!selected) return false;
+    handleOpenBookmark(selected);
     return true;
   };
 
@@ -92,24 +144,38 @@ export default function App() {
     if (searchQuery) {
       return filterBookmarks(allBookmarks, searchQuery);
     }
+    if (viewMode === 'frequent') {
+      return getHistoryBookmarks(allBookmarks, history, 'frequent');
+    }
+    if (viewMode === 'recent') {
+      return getHistoryBookmarks(allBookmarks, history, 'recent');
+    }
     return getBookmarksInFolder(
       allBookmarks,
       selectedPath,
       settings.bookmarkScope === 'nested'
     );
-  }, [allBookmarks, selectedPath, searchQuery, settings.bookmarkScope]);
+  }, [allBookmarks, history, selectedPath, searchQuery, settings.bookmarkScope, viewMode]);
+
+  useEffect(() => {
+    setSelectedResultIndex(0);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedResultIndex >= displayedBookmarks.length) {
+      setSelectedResultIndex(Math.max(0, displayedBookmarks.length - 1));
+    }
+  }, [displayedBookmarks.length, selectedResultIndex]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
-  const pageTitle = searchQuery
-    ? '搜索结果'
-    : selectedFolder?.title ?? '全部书签';
-  const pageSubtitle = searchQuery
-    ? `在全部文件夹中搜索“${searchQuery}”`
-    : selectedPath.length === 0
-      ? '查看所有已保存的书签'
-      : settings.bookmarkScope === 'nested'
-        ? `当前文件夹及子文件夹包含 ${displayedBookmarks.length} 个书签`
-        : `当前文件夹包含 ${displayedBookmarks.length} 个书签`;
+  const pageTitle = getPageTitle(searchQuery, viewMode, selectedFolder);
+  const pageSubtitle = getPageSubtitle({
+    searchQuery,
+    viewMode,
+    selectedPath,
+    count: displayedBookmarks.length,
+    includeNested: settings.bookmarkScope === 'nested',
+  });
 
   if (loading) {
     return (
@@ -166,6 +232,7 @@ export default function App() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelect={(path) => {
+          setViewMode('folder');
           setSelectedPath(path);
           setSearchQuery('');
           setSidebarOpen(false);
@@ -174,12 +241,20 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0">
         <SearchBar
           onSearch={setSearchQuery}
-          onOpenFirstBookmark={handleOpenFirstBookmark}
+          onOpenSelectedBookmark={handleOpenSelectedBookmark}
           onWebSearch={handleWebSearch}
           resultCount={searchQuery ? displayedBookmarks.length : undefined}
+          selectedIndex={selectedResultIndex}
+          onSelectedIndexChange={setSelectedResultIndex}
           title={pageTitle}
           subtitle={pageSubtitle}
           totalCount={allBookmarks.length}
+          viewMode={viewMode}
+          onViewModeChange={(mode) => {
+            setViewMode(mode);
+            setSearchQuery('');
+          }}
+          historyCount={history.length}
           defaultMode={settings.defaultSearchMode}
           searchEngine={settings.searchEngine}
           noResultWebSearch={settings.noResultWebSearch}
@@ -192,6 +267,8 @@ export default function App() {
           isSearching={!!searchQuery}
           density={settings.cardDensity}
           faviconSource={settings.faviconSource}
+          selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
+          onOpenBookmark={handleOpenBookmark}
         />
       </main>
       <SettingsDrawer

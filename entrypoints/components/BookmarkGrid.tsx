@@ -7,6 +7,8 @@ interface BookmarkGridProps {
   isSearching?: boolean;
   density?: CardDensity;
   faviconSource?: FaviconSource;
+  selectedBookmarkId?: string | null;
+  onOpenBookmark?: (bookmark: BookmarkItem) => void;
 }
 
 const CARD_WIDTH: Record<CardDensity, string> = {
@@ -41,6 +43,8 @@ export function BookmarkGrid({
   isSearching = false,
   density = 'comfortable',
   faviconSource = 'site',
+  selectedBookmarkId = null,
+  onOpenBookmark,
 }: BookmarkGridProps) {
   if (bookmarks.length === 0) {
     return <EmptyState isSearching={isSearching} />;
@@ -59,6 +63,8 @@ export function BookmarkGrid({
             showFolderPath={isSearching}
             density={density}
             faviconSource={faviconSource}
+            selected={selectedBookmarkId === b.id}
+            onOpen={onOpenBookmark}
           />
         </div>
       ))}
