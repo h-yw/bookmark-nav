@@ -1,4 +1,9 @@
-import { BookmarkItem, FolderNode } from './types';
+import type { BookmarkItem, FolderNode } from './types';
+
+export interface BookmarkUpdateInput {
+  title: string;
+  url: string;
+}
 
 export function flattenBookmarks(
   nodes: chrome.bookmarks.BookmarkTreeNode[],
@@ -82,10 +87,95 @@ export function filterBookmarks(
   allBookmarks: BookmarkItem[],
   query: string
 ): BookmarkItem[] {
-  const lower = query.toLowerCase();
-  return allBookmarks.filter(
-    (b) =>
-      b.title.toLowerCase().includes(lower) ||
-      b.url.toLowerCase().includes(lower)
+  const parsed = parseBookmarkSearchQuery(query);
+  if (!parsed.text && !parsed.folder) return allBookmarks;
+
+  return allBookmarks
+    .map((bookmark, index) => ({
+      bookmark,
+      index,
+      score: getSearchScore(bookmark, parsed.text),
+    }))
+    .filter((item) => {
+      if (parsed.folder && !matchesFolder(item.bookmark, parsed.folder)) return false;
+      return parsed.text ? item.score > 0 : true;
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.bookmark);
+}
+
+export function parseBookmarkSearchQuery(query: string): { folder: string; text: string } {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed.startsWith('@')) {
+    return { folder: '', text: trimmed };
+  }
+
+  const [folderToken = '', ...rest] = trimmed.split(/\s+/);
+  const folder = folderToken.slice(1);
+  return {
+    folder,
+    text: rest.join(' ').trim(),
+  };
+}
+
+function getSearchScore(bookmark: BookmarkItem, query: string): number {
+  if (!query) return 1;
+  const title = bookmark.title.toLowerCase();
+  const url = bookmark.url.toLowerCase();
+  const hostname = getHostname(bookmark.url);
+  const folderPath = bookmark.folderPath.join(' / ').toLowerCase();
+
+  return Math.max(
+    scoreText(title, query, 700),
+    scoreText(hostname, query, 500),
+    scoreText(url, query, 300),
+    scoreText(folderPath, query, 120)
   );
+}
+
+function scoreText(value: string, query: string, weight: number): number {
+  if (!value) return 0;
+  if (value === query) return weight + 300;
+  if (value.startsWith(query)) return weight + 200;
+  if (value.includes(query)) return weight;
+  return 0;
+}
+
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function matchesFolder(bookmark: BookmarkItem, folderQuery: string): boolean {
+  if (!folderQuery) return true;
+  return bookmark.folderPath.some((folder) => folder.toLowerCase().includes(folderQuery));
+}
+
+export function updateBookmark(id: string, changes: BookmarkUpdateInput): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.update(id, changes, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+export function removeBookmark(id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.remove(id, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
 }

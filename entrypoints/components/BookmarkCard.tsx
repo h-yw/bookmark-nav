@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BookmarkItem } from './types';
 import { getFaviconUrl, getDuckDuckGoFaviconUrl } from './favicon';
 import type { CardDensity } from './settings';
 import { simplifyUrl, openUrl } from './utils';
+
+export type BookmarkCardAction = 'copy' | 'edit' | 'delete';
 
 interface BookmarkCardProps {
   bookmark: BookmarkItem;
@@ -10,6 +12,7 @@ interface BookmarkCardProps {
   density?: CardDensity;
   selected?: boolean;
   onOpen?: (bookmark: BookmarkItem) => void;
+  onAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
 }
 
 function getFolderLabel(folderPath: string[]): string {
@@ -30,11 +33,34 @@ export function BookmarkCard({
   density = 'comfortable',
   selected = false,
   onOpen,
+  onAction,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const favicon = useFallback ? getDuckDuckGoFaviconUrl(bookmark.url) : getFaviconUrl(bookmark.url);
   const compact = density === 'compact';
+
+  useEffect(() => {
+    setImgError(false);
+    setUseFallback(false);
+    setImageReady(false);
+    setMenuOpen(false);
+  }, [bookmark.url]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [menuOpen]);
 
   const handleClick = () => {
     if (onOpen) {
@@ -44,29 +70,41 @@ export function BookmarkCard({
     openUrl(bookmark.url);
   };
 
+  const handleAction = (action: BookmarkCardAction) => {
+    setMenuOpen(false);
+    onAction?.(action, bookmark);
+  };
+
   return (
-    <button
-      type="button"
-      onClick={handleClick}
+    <div
       title={`${bookmark.title}\n${bookmark.url}`}
-      className={`group flex w-full cursor-pointer flex-col rounded-lg border bg-white text-left shadow-sm transition-all hover:translate-y-[-1px] hover:border-stone-300 hover:shadow-md focus:outline-none focus-visible:border-stone-400 focus-visible:ring-2 focus-visible:ring-stone-300/70 ${
+      className={`group relative flex w-full flex-col rounded-lg border bg-white text-left shadow-sm transition-all hover:border-stone-300 hover:shadow-md ${
         selected ? 'border-stone-400 ring-2 ring-stone-300/70' : 'border-stone-200'
       } ${
         compact ? 'p-2.5' : 'p-3'
       }`}
     >
-      <div className="flex w-full min-w-0 items-start gap-2.5">
-        <div className={`flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-stone-50 ${compact ? 'h-8 w-8' : 'h-9 w-9'}`}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex w-full min-w-0 cursor-pointer items-start gap-2.5 text-left focus:outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-stone-300/70"
+      >
+        <div className={`flex shrink-0 items-center justify-center rounded-lg border transition-colors ${
+          imageReady && !imgError ? 'border-transparent bg-white' : 'border-stone-200 bg-stone-50'
+        } ${compact ? 'h-8 w-8' : 'h-9 w-9'}`}>
           {favicon && !imgError ? (
             <img
               src={favicon}
               alt=""
               className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+              onLoad={() => setImageReady(true)}
               onError={() => {
                 if (!useFallback) {
                   setUseFallback(true);
+                  setImageReady(false);
                 } else {
                   setImgError(true);
+                  setImageReady(false);
                 }
               }}
             />
@@ -74,7 +112,7 @@ export function BookmarkCard({
             <FallbackIcon />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pr-4">
           <div className={`line-clamp-2 font-medium text-stone-800 transition-colors group-hover:text-stone-950 ${
             compact ? 'h-9 text-xs leading-[18px]' : 'h-10 text-sm leading-5'
           }`}>
@@ -84,7 +122,31 @@ export function BookmarkCard({
             {simplifyUrl(bookmark.url)}
           </div>
         </div>
-      </div>
+      </button>
+
+      {onAction && (
+        <div ref={menuRef} className="absolute right-2 top-2">
+          <button
+            type="button"
+            aria-label="打开书签操作菜单"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-stone-400 opacity-100 transition-colors hover:bg-stone-100 hover:text-stone-700 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70 sm:opacity-0 sm:group-hover:opacity-100"
+          >
+            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.75h.008v.008H12V6.75Zm0 5.25h.008v.008H12V12Zm0 5.25h.008v.008H12v-.008Z" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg">
+              <MenuItem onClick={() => handleAction('copy')}>复制链接</MenuItem>
+              <MenuItem onClick={() => handleAction('edit')}>编辑</MenuItem>
+              <MenuItem danger onClick={() => handleAction('delete')}>删除</MenuItem>
+            </div>
+          )}
+        </div>
+      )}
+
       {showFolderPath && (
         <div className={`${compact ? 'mt-2' : 'mt-3'} flex max-w-full items-center gap-1 rounded-md border border-stone-100 bg-stone-50 px-2 py-1 text-[11px] leading-4 text-stone-400`}>
           <svg aria-hidden="true" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,6 +155,30 @@ export function BookmarkCard({
           <span className="truncate">{getFolderLabel(bookmark.folderPath)}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function MenuItem({
+  danger = false,
+  onClick,
+  children,
+}: {
+  danger?: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+        danger
+          ? 'text-red-600 hover:bg-red-50'
+          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+      }`}
+    >
+      {children}
     </button>
   );
 }
