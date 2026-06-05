@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { ReactNode } from 'react';
 import type { SearchEngineId, SearchMode } from './settings';
 import { SEARCH_ENGINES } from './settings';
@@ -11,7 +11,7 @@ interface SearchBarProps {
   onWebSearch: (query: string) => void;
   resultCount?: number;
   selectedIndex: number;
-  onSelectedIndexChange: (index: number) => void;
+  onSelectedIndexChange: Dispatch<SetStateAction<number>>;
   title: string;
   subtitle: string;
   totalCount: number;

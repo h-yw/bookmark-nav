@@ -5,8 +5,10 @@ import { DEFAULT_SETTINGS, SEARCH_ENGINES } from './settings';
 interface SettingsDrawerProps {
   open: boolean;
   settings: AppSettings;
+  historyCount: number;
   onClose: () => void;
   onChange: (settings: AppSettings) => void;
+  onClearHistory: () => void;
 }
 
 function SettingGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -57,7 +59,14 @@ function Segment<T extends string>({
   );
 }
 
-export function SettingsDrawer({ open, settings, onClose, onChange }: SettingsDrawerProps) {
+export function SettingsDrawer({
+  open,
+  settings,
+  historyCount,
+  onClose,
+  onChange,
+  onClearHistory,
+}: SettingsDrawerProps) {
   if (!open) return null;
 
   const update = (patch: Partial<AppSettings>) => onChange({ ...settings, ...patch });
@@ -161,6 +170,25 @@ export function SettingsDrawer({ open, settings, onClose, onChange }: SettingsDr
                 ]}
               />
             </Field>
+          </SettingGroup>
+
+          <SettingGroup title="历史记录">
+            <div className="rounded-lg border border-stone-200 bg-white px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm text-stone-700">常用和最近打开</div>
+                  <div className="mt-0.5 text-xs text-stone-400">已记录 {historyCount} 条书签打开记录</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={historyCount === 0}
+                  onClick={onClearHistory}
+                  className="shrink-0 rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  清空
+                </button>
+              </div>
+            </div>
           </SettingGroup>
         </div>
 
