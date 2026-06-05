@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      semantic-release:
+        patterns:
+          - semantic-release
+          - "@semantic-release/*"
+      commitlint:
+        patterns:
+          - "@commitlint/*"
+      wxt:
+        patterns:
+          - wxt
+          - "@wxt-dev/*"
+      test-tooling:
+        patterns:
+          - vitest
+          - "@testing-library/*"
+          - happy-dom
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5

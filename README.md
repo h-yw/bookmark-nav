@@ -71,8 +71,8 @@ pnpm lint:fix     # 自动修复可修复问题
 
 仓库使用一条 GitHub Actions 工作流完成 CI/CD：
 
-- `quality` job：在 PR 以及 `main` / `master` push 时运行类型检查、测试、lint、生产构建和 manifest 权限检查，并上传 Chrome MV3 构建产物。
-- `release` job：在 `main` / `master` push 或手动触发时，等待 `quality` 通过后运行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。
+- `quality` job：在 PR 以及 `main` / `master` push 时运行 PR 标题校验、类型检查、测试、lint、生产构建和 manifest 权限检查，并上传 Chrome MV3 构建产物。
+- `release` job：仅在 `main` / `master` push 时运行，等待 `quality` 通过后执行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。手动触发只运行质量检查，不发布版本。
 
 提交信息需要遵循 Conventional Commits：
 
@@ -101,8 +101,11 @@ chore: 调整构建配置
 - `.output/*chrome.zip`
 - `.output/*firefox.zip`
 - `.output/*sources.zip`
+- `.output/checksums.txt`
 
-semantic-release 会在发布时把 `package.json` 写入新版本号，再执行 `pnpm zip` 和 `pnpm zip:firefox`。Chrome 扩展 manifest 的版本号必须是 `X.Y.Z` 数字段格式，因此当前 release 配置只启用稳定分支，不启用 `beta` / `alpha` 预发布分支。
+semantic-release 会在发布时把 `package.json` 写入新版本号，再执行 `pnpm zip` 和 `pnpm zip:firefox`，随后校验 manifest 并生成 zip 文件的 SHA-256 校验和。Chrome 扩展 manifest 的版本号必须是 `X.Y.Z` 数字段格式，因此当前 release 配置只启用稳定分支，不启用 `beta` / `alpha` 预发布分支。
+
+Dependabot 每周检查 npm 依赖和 GitHub Actions 更新，并按 semantic-release、WXT、测试工具等分组创建 PR。
 
 ## 技术栈
 
