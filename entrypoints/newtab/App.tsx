@@ -26,6 +26,8 @@ import {
   OperationSnapshotsDialog,
   ResetSettingsDialog,
 } from '../components/BookmarkManageDialog';
+import { DuplicateBookmarksDialog } from '../components/DuplicateBookmarksDialog';
+import type { DuplicateUrlGroup } from '../components/bookmarkAnalysis';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../components/settings';
@@ -136,6 +138,7 @@ export default function App() {
   const [operationSnapshots, setOperationSnapshots] = useState(() => loadOperationSnapshots());
   const [operationSnapshotsOpen, setOperationSnapshotsOpen] = useState(false);
   const [restoringSnapshotId, setRestoringSnapshotId] = useState<string | null>(null);
+  const [duplicateGroup, setDuplicateGroup] = useState<DuplicateUrlGroup | null>(null);
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -436,6 +439,33 @@ export default function App() {
     }
   };
 
+  const handleRemoveDuplicates = async (keepBookmark: BookmarkItem, removeBookmarks: BookmarkItem[]) => {
+    if (removeBookmarks.length === 0) return;
+    setActionError(null);
+    setActionPending(true);
+    try {
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-delete',
+        bookmarks: removeBookmarks,
+      })));
+      const result = await executeBookmarkBatchOperation(
+        removeBookmarks,
+        (bookmark) => removeBookmark(bookmark.id)
+      );
+      setDuplicateGroup(null);
+      if (result.failed.length > 0) {
+        setActionError(`已删除 ${result.succeeded.length} 个重复项，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已删除 ${result.succeeded.length} 个重复项，保留了 "${keepBookmark.title}"`);
+      }
+    } catch {
+      setActionError('删除重复书签失败');
+    } finally {
+      loadBookmarks(false);
+      setActionPending(false);
+    }
+  };
+
   const displayedBookmarks = useMemo(() => {
     if (searchQuery) {
       return filterBookmarks(allBookmarks, searchQuery, history);
@@ -624,7 +654,11 @@ export default function App() {
           onOpenSettings={() => setSettingsOpen(true)}
         />
         {viewMode === 'report' && !searchQuery ? (
-          <BookmarkReport report={report} />
+          <BookmarkReport
+            report={report}
+            history={history}
+            onProcessDuplicate={setDuplicateGroup}
+          />
         ) : (
           <BookmarkGrid
             bookmarks={displayedBookmarks}
@@ -772,6 +806,12 @@ export default function App() {
         onClose={() => setOperationSnapshotsOpen(false)}
         onRestore={handleRestoreOperationSnapshot}
         onRemove={(snapshotId) => setOperationSnapshots(removeOperationSnapshot(snapshotId))}
+      />
+      <DuplicateBookmarksDialog
+        group={duplicateGroup}
+        history={history}
+        onClose={() => setDuplicateGroup(null)}
+        onConfirm={handleRemoveDuplicates}
       />
     </div>
   );

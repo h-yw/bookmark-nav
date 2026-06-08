@@ -1,17 +1,31 @@
 import type { ReactNode } from 'react';
-import type { BookmarkReport as BookmarkReportData } from './bookmarkAnalysis';
+import type { BookmarkReport as BookmarkReportData, DuplicateUrlGroup } from './bookmarkAnalysis';
+import type { BookmarkUsage } from './history';
 import { simplifyUrl } from './utils';
 
 interface BookmarkReportProps {
   report: BookmarkReportData;
+  history: BookmarkUsage[];
+  onProcessDuplicate: (group: DuplicateUrlGroup) => void;
 }
 
-export function BookmarkReport({ report }: BookmarkReportProps) {
+export function BookmarkReport({ report, history, onProcessDuplicate }: BookmarkReportProps) {
   const totalFindings =
     report.duplicateUrlGroups.length +
     report.emptyFolders.length +
     report.weakTitles.length +
     report.staleBookmarks.length;
+
+  const historyById = new Map(history.map((u) => [u.id, u]));
+  const historyByUrl = new Map(history.map((u) => [u.url, u]));
+
+  function getLastOpened(bookmarkId: string, bookmarkUrl: string): number | undefined {
+    return historyById.get(bookmarkId)?.lastOpened ?? historyByUrl.get(bookmarkUrl)?.lastOpened;
+  }
+
+  function getOpenCount(bookmarkId: string, bookmarkUrl: string): number {
+    return historyById.get(bookmarkId)?.count ?? historyByUrl.get(bookmarkUrl)?.count ?? 0;
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8">
@@ -33,16 +47,31 @@ export function BookmarkReport({ report }: BookmarkReportProps) {
             <ReportSection title="重复链接" count={report.duplicateUrlGroups.length}>
               {report.duplicateUrlGroups.slice(0, 20).map((group) => (
                 <div key={group.normalizedUrl} className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-3">
-                  <div className="truncate text-xs text-stone-400">{group.normalizedUrl}</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 truncate text-xs text-stone-400">{group.normalizedUrl}</div>
+                    <button
+                      type="button"
+                      onClick={() => onProcessDuplicate(group)}
+                      className="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs text-white transition-colors hover:bg-stone-700"
+                    >
+                      处理
+                    </button>
+                  </div>
                   <div className="mt-2 space-y-2">
-                    {group.bookmarks.map((bookmark) => (
-                      <BookmarkLine
-                        key={bookmark.id}
-                        title={bookmark.title}
-                        url={bookmark.url}
-                        meta={bookmark.folderPath.join(' / ') || '全部书签'}
-                      />
-                    ))}
+                    {group.bookmarks.map((bookmark) => {
+                      const lastOpened = getLastOpened(bookmark.id, bookmark.url);
+                      const openCount = getOpenCount(bookmark.id, bookmark.url);
+                      return (
+                        <BookmarkLine
+                          key={bookmark.id}
+                          title={bookmark.title}
+                          url={bookmark.url}
+                          meta={bookmark.folderPath.join(' / ') || '全部书签'}
+                          lastOpened={lastOpened}
+                          openCount={openCount}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -120,18 +149,50 @@ function BookmarkLine({
   title,
   url,
   meta,
+  lastOpened,
+  openCount,
 }: {
   title: string;
   url: string;
   meta: string;
+  lastOpened?: number;
+  openCount?: number;
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-stone-100 bg-white px-3 py-2">
       <div className="truncate text-sm font-medium text-stone-800">{title}</div>
       <div className="mt-0.5 truncate text-xs text-stone-400">{simplifyUrl(url)}</div>
-      <div className="mt-1 truncate text-xs text-stone-500">{meta}</div>
+      <div className="mt-1 flex items-center gap-2 truncate text-xs text-stone-500">
+        <span className="flex items-center gap-1 truncate">
+          <svg aria-hidden="true" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.75 6.75h6l1.5 1.5h9A1.5 1.5 0 0 1 21.75 9.75v7.5a1.5 1.5 0 0 1-1.5 1.5H3.75A1.5 1.5 0 0 1 2.25 17.25v-9a1.5 1.5 0 0 1 1.5-1.5Z" />
+          </svg>
+          <span className="truncate">{meta}</span>
+        </span>
+        {openCount !== undefined && openCount > 0 && (
+          <span className="shrink-0 text-stone-400">打开 {openCount} 次</span>
+        )}
+        {lastOpened !== undefined && (
+          <span className="shrink-0 text-stone-400">{formatRelativeTime(lastOpened)}</span>
+        )}
+      </div>
     </div>
   );
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) return '刚刚';
+  if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`;
+  if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
+  if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`;
+  if (diff < 365 * day) return `${Math.floor(diff / (30 * day))} 个月前`;
+  return `${Math.floor(diff / (365 * day))} 年前`;
 }
 
 function SimpleLine({ title }: { title: string }) {
