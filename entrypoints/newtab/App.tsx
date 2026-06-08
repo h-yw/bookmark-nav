@@ -37,6 +37,13 @@ import {
   saveBookmarkHistory,
   type BookmarkUsage,
 } from '../components/history';
+import {
+  clearOperationSnapshots,
+  createOperationSnapshot,
+  loadOperationSnapshots,
+  prependOperationSnapshot,
+  saveOperationSnapshots,
+} from '../components/operationSnapshots';
 import { openUrl } from '../components/utils';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
@@ -211,7 +218,7 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data = createBookmarkNavExportData(settings, history);
+    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots());
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -227,12 +234,17 @@ export default function App() {
     setNotice(null);
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      const { settings: nextSettings, history: nextHistory } = normalizeBookmarkNavImportData(parsed, allBookmarks);
+      const {
+        settings: nextSettings,
+        history: nextHistory,
+        operationSnapshots,
+      } = normalizeBookmarkNavImportData(parsed, allBookmarks);
 
       setSettings(nextSettings);
       saveSettings(nextSettings);
       setHistory(nextHistory);
       saveBookmarkHistory(nextHistory);
+      saveOperationSnapshots(operationSnapshots);
       setNotice('数据已导入');
     } catch {
       setActionError('导入失败，请选择有效的 JSON 文件');
@@ -244,6 +256,7 @@ export default function App() {
     saveSettings(DEFAULT_SETTINGS);
     setHistory([]);
     saveBookmarkHistory([]);
+    clearOperationSnapshots();
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -359,6 +372,10 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
+      prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-delete',
+        bookmarks: selectedBookmarks,
+      }));
       const result = await executeBookmarkBatchOperation(
         selectedBookmarks,
         (bookmark) => removeBookmark(bookmark.id)
@@ -384,6 +401,11 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
+      prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-move',
+        bookmarks: movingBookmarks,
+        targetFolderId: folderId,
+      }));
       const result = await executeBookmarkBatchOperation(
         movingBookmarks,
         (bookmark) => moveBookmark(bookmark.id, folderId)

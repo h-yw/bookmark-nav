@@ -2,9 +2,9 @@
 
 ## TODO
 
-- [x] Explain the stale bookmark calculation logic.
+- [x] Explain how operation snapshots can be restored with the current implementation.
 - [x] Record the result.
 
 ## Result
 
-- Explained the current stale bookmark rules: opened bookmarks use 90 days since local open history; never-opened bookmarks use 180 days since browser `dateAdded`.
+- Current implementation stores and exports operation snapshots but does not yet provide an in-app restore action.

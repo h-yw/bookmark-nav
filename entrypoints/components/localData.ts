@@ -3,6 +3,8 @@ import type { AppSettings } from './settings';
 import { normalizeSettings } from './settings';
 import type { BookmarkUsage } from './history';
 import { normalizeBookmarkHistory, pruneBookmarkHistory } from './history';
+import type { OperationSnapshot } from './operationSnapshots';
+import { normalizeOperationSnapshots } from './operationSnapshots';
 
 export interface BookmarkNavExportData {
   app: 'bookmark-nav';
@@ -10,16 +12,19 @@ export interface BookmarkNavExportData {
   exportedAt: string;
   settings: AppSettings;
   history: BookmarkUsage[];
+  operationSnapshots: OperationSnapshot[];
 }
 
 export interface BookmarkNavImportData {
   settings: AppSettings;
   history: BookmarkUsage[];
+  operationSnapshots: OperationSnapshot[];
 }
 
 export function createBookmarkNavExportData(
   settings: AppSettings,
   history: BookmarkUsage[],
+  operationSnapshots: OperationSnapshot[] = [],
   exportedAt = new Date().toISOString()
 ): BookmarkNavExportData {
   return {
@@ -28,6 +33,7 @@ export function createBookmarkNavExportData(
     exportedAt,
     settings,
     history,
+    operationSnapshots: normalizeOperationSnapshots(operationSnapshots),
   };
 }
 
@@ -36,7 +42,7 @@ export function normalizeBookmarkNavImportData(
   allBookmarks: BookmarkItem[]
 ): BookmarkNavImportData {
   const input = value && typeof value === 'object'
-    ? value as { settings?: unknown; history?: unknown }
+    ? value as { settings?: unknown; history?: unknown; operationSnapshots?: unknown }
     : {};
 
   return {
@@ -45,5 +51,6 @@ export function normalizeBookmarkNavImportData(
       allBookmarks,
       normalizeBookmarkHistory(input.history)
     ),
+    operationSnapshots: normalizeOperationSnapshots(input.operationSnapshots),
   };
 }
