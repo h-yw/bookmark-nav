@@ -6,6 +6,7 @@ import {
   getBookmarksInFolder,
   filterBookmarks,
   executeBookmarkBatchOperation,
+  createBookmark,
   moveBookmark,
   removeBookmark,
   updateBookmark,
@@ -22,6 +23,7 @@ import {
   DeleteBookmarksDialog,
   EditBookmarkDialog,
   MoveBookmarksDialog,
+  OperationSnapshotsDialog,
   ResetSettingsDialog,
 } from '../components/BookmarkManageDialog';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
@@ -40,9 +42,12 @@ import {
 import {
   clearOperationSnapshots,
   createOperationSnapshot,
+  createOperationSnapshotRestorePlan,
   loadOperationSnapshots,
+  removeOperationSnapshot,
   prependOperationSnapshot,
   saveOperationSnapshots,
+  type OperationSnapshot,
 } from '../components/operationSnapshots';
 import { openUrl } from '../components/utils';
 
@@ -128,6 +133,9 @@ export default function App() {
   const [clearingHistory, setClearingHistory] = useState(false);
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [resettingSettings, setResettingSettings] = useState(false);
+  const [operationSnapshots, setOperationSnapshots] = useState(() => loadOperationSnapshots());
+  const [operationSnapshotsOpen, setOperationSnapshotsOpen] = useState(false);
+  const [restoringSnapshotId, setRestoringSnapshotId] = useState<string | null>(null);
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -245,6 +253,7 @@ export default function App() {
       setHistory(nextHistory);
       saveBookmarkHistory(nextHistory);
       saveOperationSnapshots(operationSnapshots);
+      setOperationSnapshots(operationSnapshots);
       setNotice('数据已导入');
     } catch {
       setActionError('导入失败，请选择有效的 JSON 文件');
@@ -257,6 +266,7 @@ export default function App() {
     setHistory([]);
     saveBookmarkHistory([]);
     clearOperationSnapshots();
+    setOperationSnapshots([]);
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -372,10 +382,10 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
-      prependOperationSnapshot(createOperationSnapshot({
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
         type: 'batch-delete',
         bookmarks: selectedBookmarks,
-      }));
+      })));
       const result = await executeBookmarkBatchOperation(
         selectedBookmarks,
         (bookmark) => removeBookmark(bookmark.id)
@@ -401,11 +411,11 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
-      prependOperationSnapshot(createOperationSnapshot({
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
         type: 'batch-move',
         bookmarks: movingBookmarks,
         targetFolderId: folderId,
-      }));
+      })));
       const result = await executeBookmarkBatchOperation(
         movingBookmarks,
         (bookmark) => moveBookmark(bookmark.id, folderId)
@@ -466,6 +476,14 @@ export default function App() {
     () => createBookmarkReport(allBookmarks, folders, history),
     [allBookmarks, folders, history]
   );
+  const validFolderIds = useMemo(() => new Set(getFolderIds(folders)), [folders]);
+  const operationSnapshotRestorePlans = useMemo(() => {
+    const plans = new Map<string, ReturnType<typeof createOperationSnapshotRestorePlan>>();
+    for (const snapshot of operationSnapshots) {
+      plans.set(snapshot.id, createOperationSnapshotRestorePlan(snapshot, allBookmarks, validFolderIds));
+    }
+    return plans;
+  }, [allBookmarks, operationSnapshots, validFolderIds]);
   const selectedBookmarks = useMemo(
     () => selectedBookmarkIds
       .map((id) => allBookmarks.find((bookmark) => bookmark.id === id))
@@ -480,6 +498,43 @@ export default function App() {
     count: displayedBookmarks.length,
     includeNested: settings.bookmarkScope === 'nested',
   });
+
+  const handleRestoreOperationSnapshot = async (snapshot: OperationSnapshot) => {
+    const plan = operationSnapshotRestorePlans.get(snapshot.id) ?? [];
+    const restorableItems = plan.filter((item) => item.canRestore);
+    if (restorableItems.length === 0) return;
+
+    setActionError(null);
+    setNotice(null);
+    setRestoringSnapshotId(snapshot.id);
+
+    const result = await executeBookmarkBatchOperation(
+      restorableItems.map((item) => item.bookmark),
+      async (bookmark) => {
+        const item = restorableItems.find((planItem) => planItem.bookmark.id === bookmark.id);
+        if (!item?.parentId) throw new Error('Missing restore target folder');
+        if (item.action === 'create') {
+          await createBookmark({
+            title: item.bookmark.title,
+            url: item.bookmark.url,
+            parentId: item.parentId,
+          });
+          return;
+        }
+        if (!item.currentBookmark) throw new Error('Missing current bookmark');
+        await moveBookmark(item.currentBookmark.id, item.parentId);
+      }
+    );
+
+    if (result.failed.length > 0) {
+      setActionError(`已恢复 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+    } else {
+      setNotice(`已恢复 ${result.succeeded.length} 个书签`);
+      setOperationSnapshots(removeOperationSnapshot(snapshot.id));
+    }
+    setRestoringSnapshotId(null);
+    loadBookmarks(false);
+  };
 
   if (loading) {
     return (
@@ -698,14 +753,29 @@ export default function App() {
         open={settingsOpen}
         settings={settings}
         historyCount={history.length}
+        operationSnapshotCount={operationSnapshots.length}
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
         onClearHistory={() => setClearingHistory(true)}
+        onOpenOperationSnapshots={() => setOperationSnapshotsOpen(true)}
         onExportData={handleExportData}
         onImportData={handleImportData}
         onClearLocalData={() => setClearingLocalData(true)}
         onResetSettings={() => setResettingSettings(true)}
       />
+      <OperationSnapshotsDialog
+        open={operationSnapshotsOpen}
+        snapshots={operationSnapshots}
+        plansBySnapshotId={operationSnapshotRestorePlans}
+        restoringSnapshotId={restoringSnapshotId}
+        onClose={() => setOperationSnapshotsOpen(false)}
+        onRestore={handleRestoreOperationSnapshot}
+        onRemove={(snapshotId) => setOperationSnapshots(removeOperationSnapshot(snapshotId))}
+      />
     </div>
   );
+}
+
+function getFolderIds(folders: FolderNode[]): string[] {
+  return folders.flatMap((folder) => [folder.id, ...getFolderIds(folder.children)]);
 }

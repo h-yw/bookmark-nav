@@ -6,6 +6,12 @@ export interface BookmarkUpdateInput {
   url: string;
 }
 
+export interface BookmarkCreateInput {
+  title: string;
+  url: string;
+  parentId?: string;
+}
+
 export interface BookmarkSearchQuery {
   folder: string;
   include: string[];
@@ -268,6 +274,19 @@ export function removeBookmark(id: string): Promise<void> {
 export function moveBookmark(id: string, parentId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.bookmarks.move(id, { parentId }, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+export function createBookmark(input: BookmarkCreateInput): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.bookmarks.create(input, () => {
       const error = chrome.runtime.lastError;
       if (error) {
         reject(new Error(error.message));

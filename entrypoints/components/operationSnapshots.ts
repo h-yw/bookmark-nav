@@ -10,6 +10,15 @@ export interface OperationSnapshot {
   targetFolderId?: string;
 }
 
+export interface OperationSnapshotRestorePlan {
+  action: 'create' | 'move';
+  bookmark: BookmarkItem;
+  currentBookmark?: BookmarkItem;
+  parentId?: string;
+  canRestore: boolean;
+  reason?: string;
+}
+
 export interface CreateOperationSnapshotInput {
   type: OperationSnapshotType;
   bookmarks: BookmarkItem[];
@@ -90,12 +99,83 @@ export function prependOperationSnapshot(snapshot: OperationSnapshot): Operation
   return snapshots;
 }
 
+export function removeOperationSnapshot(id: string): OperationSnapshot[] {
+  const snapshots = loadOperationSnapshots().filter((snapshot) => snapshot.id !== id);
+  saveOperationSnapshots(snapshots);
+  return snapshots;
+}
+
 export function clearOperationSnapshots(): void {
   try {
     localStorage.removeItem(OPERATION_SNAPSHOTS_STORAGE_KEY);
   } catch {
     // Clearing local data should continue even if localStorage is unavailable.
   }
+}
+
+export function createOperationSnapshotRestorePlan(
+  snapshot: OperationSnapshot,
+  currentBookmarks: BookmarkItem[],
+  validFolderIds: Set<string>
+): OperationSnapshotRestorePlan[] {
+  const currentById = new Map(currentBookmarks.map((bookmark) => [bookmark.id, bookmark]));
+  const currentByUrl = new Map(currentBookmarks.map((bookmark) => [bookmark.url, bookmark]));
+
+  return snapshot.bookmarks.map((bookmark) => {
+    const originalParentId = bookmark.folderIdPath.at(-1);
+    const currentBookmark = currentById.get(bookmark.id) ?? currentByUrl.get(bookmark.url);
+
+    if (snapshot.type === 'batch-delete') {
+      if (currentBookmark) {
+        return {
+          action: 'create',
+          bookmark,
+          currentBookmark,
+          canRestore: false,
+          reason: '当前已存在相同书签',
+        };
+      }
+      if (!originalParentId || !validFolderIds.has(originalParentId)) {
+        return {
+          action: 'create',
+          bookmark,
+          canRestore: false,
+          reason: '原文件夹不存在',
+        };
+      }
+      return {
+        action: 'create',
+        bookmark,
+        parentId: originalParentId,
+        canRestore: true,
+      };
+    }
+
+    if (!currentBookmark) {
+      return {
+        action: 'move',
+        bookmark,
+        canRestore: false,
+        reason: '当前书签不存在',
+      };
+    }
+    if (!originalParentId || !validFolderIds.has(originalParentId)) {
+      return {
+        action: 'move',
+        bookmark,
+        currentBookmark,
+        canRestore: false,
+        reason: '原文件夹不存在',
+      };
+    }
+    return {
+      action: 'move',
+      bookmark,
+      currentBookmark,
+      parentId: originalParentId,
+      canRestore: true,
+    };
+  });
 }
 
 function cloneBookmark(bookmark: BookmarkItem): BookmarkItem {

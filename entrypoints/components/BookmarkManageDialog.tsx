@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { BookmarkItem, FolderNode } from './types';
+import type { OperationSnapshot, OperationSnapshotRestorePlan } from './operationSnapshots';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
@@ -52,6 +53,16 @@ interface ClearHistoryDialogProps {
   count: number;
   onClose: () => void;
   onConfirm: () => void;
+}
+
+interface OperationSnapshotsDialogProps {
+  open: boolean;
+  snapshots: OperationSnapshot[];
+  plansBySnapshotId: Map<string, OperationSnapshotRestorePlan[]>;
+  restoringSnapshotId?: string | null;
+  onClose: () => void;
+  onRestore: (snapshot: OperationSnapshot) => void;
+  onRemove: (snapshotId: string) => void;
 }
 
 interface FolderOption {
@@ -444,6 +455,85 @@ export function ClearHistoryDialog({ open, count, onClose, onConfirm }: ClearHis
           >
             清空
           </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function OperationSnapshotsDialog({
+  open,
+  snapshots,
+  plansBySnapshotId,
+  restoringSnapshotId = null,
+  onClose,
+  onRestore,
+  onRemove,
+}: OperationSnapshotsDialogProps) {
+  if (!open) return null;
+
+  return (
+    <DialogShell title="操作快照" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm leading-6 text-stone-500">
+          恢复前会先预览可恢复项目。恢复会重新创建已删除书签，或把仍存在的书签移回原文件夹。
+        </p>
+        <div className="max-h-96 space-y-3 overflow-y-auto">
+          {snapshots.map((snapshot) => {
+            const plan = plansBySnapshotId.get(snapshot.id) ?? [];
+            const restorableCount = plan.filter((item) => item.canRestore).length;
+            const blockedCount = plan.length - restorableCount;
+
+            return (
+              <div key={snapshot.id} className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-stone-800">
+                      {snapshot.type === 'batch-delete' ? '批量删除前快照' : '批量移动前快照'}
+                    </div>
+                    <div className="mt-0.5 text-xs text-stone-400">
+                      {new Date(snapshot.createdAt).toLocaleString()} · 可恢复 {restorableCount} 个
+                      {blockedCount > 0 ? `，跳过 ${blockedCount} 个` : ''}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={restoringSnapshotId === snapshot.id || restorableCount === 0}
+                      onClick={() => onRestore(snapshot)}
+                      className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {restoringSnapshotId === snapshot.id ? '恢复中...' : '恢复'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={restoringSnapshotId === snapshot.id}
+                      onClick={() => onRemove(snapshot.id)}
+                      className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                    >
+                      移除
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {plan.slice(0, 5).map((item) => (
+                    <div key={`${snapshot.id}-${item.bookmark.id}`} className="rounded-lg border border-stone-100 bg-white px-3 py-2">
+                      <div className="truncate text-sm text-stone-700">{item.bookmark.title}</div>
+                      <div className="mt-0.5 truncate text-xs text-stone-400">{item.bookmark.url}</div>
+                      <div className={`mt-1 text-xs ${item.canRestore ? 'text-stone-500' : 'text-red-500'}`}>
+                        {item.canRestore
+                          ? item.action === 'create' ? '将重新创建' : '将移回原文件夹'
+                          : item.reason}
+                      </div>
+                    </div>
+                  ))}
+                  {plan.length > 5 && (
+                    <div className="text-xs text-stone-400">另有 {plan.length - 5} 个项目</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </DialogShell>

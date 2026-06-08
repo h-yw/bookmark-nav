@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearOperationSnapshots,
   createOperationSnapshot,
+  createOperationSnapshotRestorePlan,
   loadOperationSnapshots,
   normalizeOperationSnapshots,
   prependOperationSnapshot,
+  removeOperationSnapshot,
 } from '../operationSnapshots';
 import type { BookmarkItem } from '../types';
 
@@ -91,5 +93,95 @@ describe('operation snapshots', () => {
     clearOperationSnapshots();
 
     expect(loadOperationSnapshots()).toEqual([]);
+  });
+
+  it('removes one stored snapshot', () => {
+    const first = createOperationSnapshot({
+      type: 'batch-delete',
+      bookmarks: [bookmark],
+      createdAt: 100,
+    });
+    const second = createOperationSnapshot({
+      type: 'batch-move',
+      bookmarks: [bookmark],
+      targetFolderId: 'folder-1',
+      createdAt: 200,
+    });
+    prependOperationSnapshot(first);
+    prependOperationSnapshot(second);
+
+    expect(removeOperationSnapshot(second.id).map((snapshot) => snapshot.id)).toEqual([first.id]);
+  });
+
+  it('plans deleted bookmark recreation in the original folder', () => {
+    const snapshot = createOperationSnapshot({
+      type: 'batch-delete',
+      bookmarks: [bookmark],
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [], new Set(['1']))).toEqual([
+      {
+        action: 'create',
+        bookmark,
+        parentId: '1',
+        canRestore: true,
+      },
+    ]);
+  });
+
+  it('blocks deleted bookmark recreation when the bookmark already exists', () => {
+    const snapshot = createOperationSnapshot({
+      type: 'batch-delete',
+      bookmarks: [bookmark],
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [bookmark], new Set(['1']))[0]).toMatchObject({
+      action: 'create',
+      bookmark,
+      currentBookmark: bookmark,
+      canRestore: false,
+      reason: '当前已存在相同书签',
+    });
+  });
+
+  it('plans moved bookmark restore by current id', () => {
+    const movedBookmark = {
+      ...bookmark,
+      folderIdPath: ['2'],
+    };
+    const snapshot = createOperationSnapshot({
+      type: 'batch-move',
+      bookmarks: [bookmark],
+      targetFolderId: '2',
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [movedBookmark], new Set(['1', '2']))).toEqual([
+      {
+        action: 'move',
+        bookmark,
+        currentBookmark: movedBookmark,
+        parentId: '1',
+        canRestore: true,
+      },
+    ]);
+  });
+
+  it('blocks moved bookmark restore when the current bookmark is missing', () => {
+    const snapshot = createOperationSnapshot({
+      type: 'batch-move',
+      bookmarks: [bookmark],
+      targetFolderId: '2',
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [], new Set(['1']))[0]).toMatchObject({
+      action: 'move',
+      bookmark,
+      canRestore: false,
+      reason: '当前书签不存在',
+    });
   });
 });
