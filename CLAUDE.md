@@ -17,6 +17,13 @@ pnpm lint         # 代码检查（biome）
 pnpm lint:fix     # 自动修复 lint 问题
 ```
 
+## IMPORTANT: 当前任务记录
+
+- 每次开始任何开发、review、文档或验证任务前，先修改 `docs/current.md`
+- `docs/current.md` 必须写明本次任务的 TODO list，使用 checklist 记录待办项
+- 任务过程中如范围变化，及时更新 `docs/current.md`
+- 任务完成后，再次更新 `docs/current.md`，把已完成项勾选，并补充验证结果或未完成原因
+
 ## IMPORTANT: 书签 API 坑
 
 - `chrome.bookmarks.getTree()` 返回树，`tree[0].children` 是根节点（书签栏、其他书签等）
