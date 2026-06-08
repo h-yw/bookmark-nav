@@ -1,17 +1,11 @@
 const path = require('node:path');
 
-const expectedVersion = process.argv[2];
-const requestedManifest = process.argv[3];
-
 const defaultManifests = [
   '.output/chrome-mv3/manifest.json',
   '.output/firefox-mv2/manifest.json',
 ];
 
-const manifests = requestedManifest ? [requestedManifest] : defaultManifests;
-
-for (const manifestPath of manifests) {
-  const manifest = require(path.join(process.cwd(), manifestPath));
+function checkManifestObject(manifest, manifestPath, expectedVersion = '') {
   const permissions = manifest.permissions ?? [];
 
   if (expectedVersion && manifest.version !== expectedVersion) {
@@ -27,4 +21,28 @@ for (const manifestPath of manifests) {
   }
 }
 
-console.log(`Manifest checks OK${expectedVersion ? ` for ${expectedVersion}` : ''}`);
+function checkManifestFile(manifestPath, expectedVersion = '') {
+  const manifest = require(path.join(process.cwd(), manifestPath));
+  checkManifestObject(manifest, manifestPath, expectedVersion);
+}
+
+function main() {
+  const expectedVersion = process.argv[2];
+  const requestedManifest = process.argv[3];
+  const manifests = requestedManifest ? [requestedManifest] : defaultManifests;
+
+  for (const manifestPath of manifests) {
+    checkManifestFile(manifestPath, expectedVersion);
+  }
+
+  console.log(`Manifest checks OK${expectedVersion ? ` for ${expectedVersion}` : ''}`);
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  checkManifestFile,
+  checkManifestObject,
+};

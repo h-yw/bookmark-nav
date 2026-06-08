@@ -1,4 +1,5 @@
 import type { BookmarkItem, FolderNode } from './types';
+import type { BookmarkUsage } from './history';
 
 export interface BookmarkUpdateInput {
   title: string;
@@ -11,6 +12,11 @@ export interface BookmarkSearchQuery {
   exclude: string[];
   site: string;
   text: string;
+}
+
+export interface BookmarkBatchResult {
+  succeeded: BookmarkItem[];
+  failed: Array<{ bookmark: BookmarkItem; error: Error }>;
 }
 
 export function flattenBookmarks(
@@ -93,16 +99,18 @@ export function getBookmarksInFolder(
 
 export function filterBookmarks(
   allBookmarks: BookmarkItem[],
-  query: string
+  query: string,
+  history: BookmarkUsage[] = []
 ): BookmarkItem[] {
   const parsed = parseBookmarkSearchQuery(query);
   if (!parsed.text && !parsed.folder && !parsed.site && parsed.exclude.length === 0) return allBookmarks;
+  const historyBoosts = buildHistoryBoosts(allBookmarks, history);
 
   return allBookmarks
     .map((bookmark, index) => ({
       bookmark,
       index,
-      score: getSearchScore(bookmark, parsed.include),
+      score: getSearchScore(bookmark, parsed.include) + (historyBoosts.get(bookmark.id) ?? 0),
     }))
     .filter((item) => {
       if (parsed.folder && !matchesFolder(item.bookmark, parsed.folder)) return false;
@@ -207,6 +215,30 @@ function hasSearchMatch(bookmark: BookmarkItem, query: string): boolean {
   return getSingleSearchScore(bookmark, query) > 0;
 }
 
+function buildHistoryBoosts(bookmarks: BookmarkItem[], history: BookmarkUsage[]): Map<string, number> {
+  if (history.length === 0) return new Map();
+
+  const byId = new Map(bookmarks.map((bookmark) => [bookmark.id, bookmark]));
+  const byUrl = new Map(bookmarks.map((bookmark) => [bookmark.url, bookmark]));
+  const sortedRecent = [...history].sort((a, b) => b.lastOpened - a.lastOpened);
+  const boosts = new Map<string, number>();
+
+  for (const usage of history) {
+    const bookmark = byId.get(usage.id) ?? byUrl.get(usage.url);
+    if (!bookmark) continue;
+    boosts.set(bookmark.id, Math.min(usage.count * 6, 48));
+  }
+
+  sortedRecent.forEach((usage, index) => {
+    const bookmark = byId.get(usage.id) ?? byUrl.get(usage.url);
+    if (!bookmark) return;
+    const recentBoost = Math.max(0, 42 - index * 6);
+    boosts.set(bookmark.id, (boosts.get(bookmark.id) ?? 0) + recentBoost);
+  });
+
+  return boosts;
+}
+
 export function updateBookmark(id: string, changes: BookmarkUpdateInput): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.bookmarks.update(id, changes, () => {
@@ -244,4 +276,28 @@ export function moveBookmark(id: string, parentId: string): Promise<void> {
       resolve();
     });
   });
+}
+
+export async function executeBookmarkBatchOperation(
+  bookmarks: BookmarkItem[],
+  operation: (bookmark: BookmarkItem) => Promise<void>
+): Promise<BookmarkBatchResult> {
+  const result: BookmarkBatchResult = {
+    succeeded: [],
+    failed: [],
+  };
+
+  for (const bookmark of bookmarks) {
+    try {
+      await operation(bookmark);
+      result.succeeded.push(bookmark);
+    } catch (error) {
+      result.failed.push({
+        bookmark,
+        error: error instanceof Error ? error : new Error('Unknown bookmark operation error'),
+      });
+    }
+  }
+
+  return result;
 }

@@ -5,6 +5,7 @@ import {
   buildFolderTree,
   getBookmarksInFolder,
   filterBookmarks,
+  executeBookmarkBatchOperation,
   moveBookmark,
   removeBookmark,
   updateBookmark,
@@ -24,11 +25,11 @@ import {
 } from '../components/BookmarkManageDialog';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
-import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings } from '../components/settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../components/settings';
+import { createBookmarkNavExportData, normalizeBookmarkNavImportData } from '../components/localData';
 import {
   getHistoryBookmarks,
   loadBookmarkHistory,
-  normalizeBookmarkHistory,
   pruneBookmarkHistory,
   recordBookmarkOpen,
   saveBookmarkHistory,
@@ -49,14 +50,6 @@ const SEARCH_ENGINES_BY_ID: Record<SearchEngineId, string> = {
   duckduckgo: 'DuckDuckGo',
   baidu: '百度',
 };
-
-interface BookmarkNavExportData {
-  app: 'bookmark-nav';
-  version: 1;
-  exportedAt: string;
-  settings: AppSettings;
-  history: BookmarkUsage[];
-}
 
 function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): FolderNode | null {
   let currentFolders = folders;
@@ -212,13 +205,7 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data: BookmarkNavExportData = {
-      app: 'bookmark-nav',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      settings,
-      history,
-    };
+    const data = createBookmarkNavExportData(settings, history);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -234,14 +221,7 @@ export default function App() {
     setNotice(null);
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      const input = parsed && typeof parsed === 'object'
-        ? parsed as { settings?: unknown; history?: unknown }
-        : {};
-      const nextSettings = normalizeSettings(input.settings);
-      const nextHistory = pruneBookmarkHistory(
-        allBookmarks,
-        normalizeBookmarkHistory(input.history)
-      );
+      const { settings: nextSettings, history: nextHistory } = normalizeBookmarkNavImportData(parsed, allBookmarks);
 
       setSettings(nextSettings);
       saveSettings(nextSettings);
@@ -282,7 +262,7 @@ export default function App() {
   };
 
   const handleOpenSelectedBookmark = (query: string, index: number) => {
-    const matches = query ? filterBookmarks(allBookmarks, query) : displayedBookmarks;
+    const matches = query ? filterBookmarks(allBookmarks, query, history) : displayedBookmarks;
     const selected = matches[Math.min(index, matches.length - 1)];
     if (!selected) return false;
     handleOpenBookmark(selected);
@@ -373,14 +353,22 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
-      await Promise.all(selectedBookmarks.map((bookmark) => removeBookmark(bookmark.id)));
+      const result = await executeBookmarkBatchOperation(
+        selectedBookmarks,
+        (bookmark) => removeBookmark(bookmark.id)
+      );
       setBatchDeleting(false);
-      setSelectedBookmarkIds([]);
-      setNotice(`已删除 ${selectedBookmarks.length} 个书签`);
-      loadBookmarks(false);
+      const succeededIds = new Set(result.succeeded.map((bookmark) => bookmark.id));
+      setSelectedBookmarkIds((ids) => ids.filter((id) => !succeededIds.has(id)));
+      if (result.failed.length > 0) {
+        setActionError(`已删除 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已删除 ${result.succeeded.length} 个书签`);
+      }
     } catch {
       setActionError('批量删除失败');
     } finally {
+      loadBookmarks(false);
       setActionPending(false);
     }
   };
@@ -390,22 +378,29 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
-      await Promise.all(movingBookmarks.map((bookmark) => moveBookmark(bookmark.id, folderId)));
-      const movedIds = new Set(movingBookmarks.map((bookmark) => bookmark.id));
+      const result = await executeBookmarkBatchOperation(
+        movingBookmarks,
+        (bookmark) => moveBookmark(bookmark.id, folderId)
+      );
+      const movedIds = new Set(result.succeeded.map((bookmark) => bookmark.id));
       setSelectedBookmarkIds((ids) => ids.filter((id) => !movedIds.has(id)));
       setMovingBookmarks([]);
-      setNotice(`已移动 ${movingBookmarks.length} 个书签`);
-      loadBookmarks(false);
+      if (result.failed.length > 0) {
+        setActionError(`已移动 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已移动 ${result.succeeded.length} 个书签`);
+      }
     } catch {
       setActionError('移动书签失败');
     } finally {
+      loadBookmarks(false);
       setActionPending(false);
     }
   };
 
   const displayedBookmarks = useMemo(() => {
     if (searchQuery) {
-      return filterBookmarks(allBookmarks, searchQuery);
+      return filterBookmarks(allBookmarks, searchQuery, history);
     }
     if (viewMode === 'frequent') {
       return getHistoryBookmarks(allBookmarks, history, 'frequent');
