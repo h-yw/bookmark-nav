@@ -658,6 +658,11 @@ export default function App() {
             report={report}
             history={history}
             onProcessDuplicate={setDuplicateGroup}
+            onNavigateToFolder={(folderIdPath) => {
+              setSelectedPath(folderIdPath);
+              setViewMode('folder');
+              setSearchQuery('');
+            }}
           />
         ) : (
           <BookmarkGrid

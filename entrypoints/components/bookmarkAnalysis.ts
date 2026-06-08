@@ -23,8 +23,14 @@ export interface StaleBookmarkItem {
   lastOpened?: number;
 }
 
+export interface SimilarUrlGroup {
+  domain: string;
+  bookmarks: BookmarkItem[];
+}
+
 export interface BookmarkReport {
   duplicateUrlGroups: DuplicateUrlGroup[];
+  similarUrlGroups: SimilarUrlGroup[];
   emptyFolders: EmptyFolderItem[];
   weakTitles: WeakTitleItem[];
   staleBookmarks: StaleBookmarkItem[];
@@ -54,8 +60,10 @@ export function createBookmarkReport(
   history: BookmarkUsage[],
   now = Date.now()
 ): BookmarkReport {
+  const duplicateUrlGroups = findDuplicateUrlGroups(bookmarks);
   return {
-    duplicateUrlGroups: findDuplicateUrlGroups(bookmarks),
+    duplicateUrlGroups,
+    similarUrlGroups: findSimilarUrlGroups(bookmarks, duplicateUrlGroups),
     emptyFolders: findEmptyFolders(folders),
     weakTitles: findWeakTitles(bookmarks),
     staleBookmarks: findStaleBookmarks(bookmarks, history, now),
@@ -78,6 +86,43 @@ function findDuplicateUrlGroups(bookmarks: BookmarkItem[]): DuplicateUrlGroup[] 
       bookmarks: items.sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .sort((a, b) => b.bookmarks.length - a.bookmarks.length || a.normalizedUrl.localeCompare(b.normalizedUrl));
+}
+
+function findSimilarUrlGroups(bookmarks: BookmarkItem[], duplicateGroups: DuplicateUrlGroup[]): SimilarUrlGroup[] {
+  // Build set of URLs already covered by duplicate detection
+  const duplicateUrls = new Set<string>();
+  for (const group of duplicateGroups) {
+    for (const bookmark of group.bookmarks) {
+      duplicateUrls.add(bookmark.url);
+    }
+  }
+
+  // Group by domain
+  const byDomain = new Map<string, BookmarkItem[]>();
+  for (const bookmark of bookmarks) {
+    // Skip URLs already in duplicate groups
+    if (duplicateUrls.has(bookmark.url)) continue;
+    const domain = getDomain(bookmark.url);
+    if (!domain) continue;
+    byDomain.set(domain, [...(byDomain.get(domain) ?? []), bookmark]);
+  }
+
+  // Filter to groups with 3+ bookmarks (2-book groups are less interesting)
+  return [...byDomain.entries()]
+    .filter(([, items]) => items.length >= 3)
+    .map(([domain, items]) => ({
+      domain,
+      bookmarks: items.sort((a, b) => a.title.localeCompare(b.title)),
+    }))
+    .sort((a, b) => b.bookmarks.length - a.bookmarks.length || a.domain.localeCompare(b.domain));
+}
+
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
 }
 
 function findEmptyFolders(folders: FolderNode[]): EmptyFolderItem[] {

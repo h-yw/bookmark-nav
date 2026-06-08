@@ -1,22 +1,11 @@
 # Current Work
 
-## 当前任务：重复书签处理交互
+## 当前任务：导出清理报告
 
 ### TODO
-- [x] BookmarkReport 中重复链接区域添加"处理"按钮
-- [x] 新建 DuplicateBookmarksDialog 组件：展示重复项、文件夹路径、辅助选择
-- [x] 支持按最近访问/创建时间/文件夹优先级排序，辅助用户选择保留哪个
-- [x] 选择保留项后，删除其他重复项（带确认）
-- [x] 删除前自动生成操作快照
-- [x] App.tsx 中接入处理流程
-- [x] 添加测试（5 个用例覆盖排序逻辑）
-- [x] `pnpm verify` 通过
-
-### 实现摘要
-- `BookmarkReport.tsx`：重复链接区域显示每个重复项的文件夹路径、打开次数和最后访问时间；每组添加"处理"按钮
-- `DuplicateBookmarksDialog.tsx`：新组件，按最近访问/打开次数/创建时间排序推荐保留项，支持 radio 选择，确认后删除其他重复项
-- `App.tsx`：接入 DuplicateBookmarksDialog，删除前自动生成 batch-delete 操作快照
-- `duplicateBookmarks.test.ts`：覆盖排序逻辑（lastOpened/openCount/dateAdded 优先级、URL 匹配、无历史记录）
+- [ ] BookmarkReport 中添加"导出报告"按钮
+- [ ] 实现导出为 JSON 文件功能
+- [ ] `pnpm verify` 通过
 
 ## 项目 Review 总结
 

@@ -80,4 +80,41 @@ describe('createBookmarkReport', () => {
       ['1', '90 天未打开'],
     ]);
   });
+
+  it('groups similar URLs by domain when 3+ bookmarks share the same domain', () => {
+    const report = createBookmarkReport([
+      bookmark({ id: '1', title: 'GitHub Home', url: 'https://github.com/home' }),
+      bookmark({ id: '2', title: 'GitHub Repo A', url: 'https://github.com/user/repo-a' }),
+      bookmark({ id: '3', title: 'GitHub Repo B', url: 'https://github.com/user/repo-b' }),
+      bookmark({ id: '4', title: 'Other Site', url: 'https://other.com/page' }),
+    ], [], [], now);
+
+    expect(report.similarUrlGroups).toHaveLength(1);
+    expect(report.similarUrlGroups[0].domain).toBe('github.com');
+    expect(report.similarUrlGroups[0].bookmarks).toHaveLength(3);
+  });
+
+  it('excludes duplicate URLs from similar groups', () => {
+    const report = createBookmarkReport([
+      bookmark({ id: '1', title: 'A', url: 'https://github.com/same' }),
+      bookmark({ id: '2', title: 'B', url: 'https://github.com/same' }),
+      bookmark({ id: '3', title: 'C', url: 'https://github.com/other1' }),
+      bookmark({ id: '4', title: 'D', url: 'https://github.com/other2' }),
+      bookmark({ id: '5', title: 'E', url: 'https://github.com/other3' }),
+    ], [], [], now);
+
+    // The duplicate pair is in duplicateUrlGroups, so similarUrlGroups only has the non-duplicate ones
+    expect(report.duplicateUrlGroups).toHaveLength(1);
+    expect(report.similarUrlGroups).toHaveLength(1);
+    expect(report.similarUrlGroups[0].bookmarks).toHaveLength(3);
+  });
+
+  it('does not create similar groups for domains with fewer than 3 bookmarks', () => {
+    const report = createBookmarkReport([
+      bookmark({ id: '1', title: 'A', url: 'https://example.com/a' }),
+      bookmark({ id: '2', title: 'B', url: 'https://example.com/b' }),
+    ], [], [], now);
+
+    expect(report.similarUrlGroups).toHaveLength(0);
+  });
 });

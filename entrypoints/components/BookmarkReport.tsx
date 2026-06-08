@@ -7,11 +7,13 @@ interface BookmarkReportProps {
   report: BookmarkReportData;
   history: BookmarkUsage[];
   onProcessDuplicate: (group: DuplicateUrlGroup) => void;
+  onNavigateToFolder: (folderIdPath: string[]) => void;
 }
 
-export function BookmarkReport({ report, history, onProcessDuplicate }: BookmarkReportProps) {
+export function BookmarkReport({ report, history, onProcessDuplicate, onNavigateToFolder }: BookmarkReportProps) {
   const totalFindings =
     report.duplicateUrlGroups.length +
+    report.similarUrlGroups.length +
     report.emptyFolders.length +
     report.weakTitles.length +
     report.staleBookmarks.length;
@@ -32,7 +34,7 @@ export function BookmarkReport({ report, history, onProcessDuplicate }: Bookmark
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="重复链接" value={report.duplicateUrlGroups.length} />
-          <MetricCard label="空文件夹" value={report.emptyFolders.length} />
+          <MetricCard label="相似链接" value={report.similarUrlGroups.length} />
           <MetricCard label="标题异常" value={report.weakTitles.length} />
           <MetricCard label="长期未打开" value={report.staleBookmarks.length} />
         </div>
@@ -69,9 +71,44 @@ export function BookmarkReport({ report, history, onProcessDuplicate }: Bookmark
                           meta={bookmark.folderPath.join(' / ') || '全部书签'}
                           lastOpened={lastOpened}
                           openCount={openCount}
+                          folderIdPath={bookmark.folderIdPath}
+                          onNavigateToFolder={onNavigateToFolder}
                         />
                       );
                     })}
+                  </div>
+                </div>
+              ))}
+            </ReportSection>
+
+            <ReportSection title="相似链接" count={report.similarUrlGroups.length}>
+              <p className="mb-3 text-xs text-stone-400">同一域名下有多个书签，可能来自同一网站的不同页面。</p>
+              {report.similarUrlGroups.slice(0, 15).map((group) => (
+                <div key={group.domain} className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 text-sm font-medium text-stone-700">{group.domain}</div>
+                    <span className="shrink-0 rounded-full bg-stone-200 px-2 py-0.5 text-[11px] text-stone-500">{group.bookmarks.length} 个</span>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {group.bookmarks.slice(0, 5).map((bookmark) => {
+                      const lastOpened = getLastOpened(bookmark.id, bookmark.url);
+                      const openCount = getOpenCount(bookmark.id, bookmark.url);
+                      return (
+                        <BookmarkLine
+                          key={bookmark.id}
+                          title={bookmark.title}
+                          url={bookmark.url}
+                          meta={bookmark.folderPath.join(' / ') || '全部书签'}
+                          lastOpened={lastOpened}
+                          openCount={openCount}
+                          folderIdPath={bookmark.folderIdPath}
+                          onNavigateToFolder={onNavigateToFolder}
+                        />
+                      );
+                    })}
+                    {group.bookmarks.length > 5 && (
+                      <div className="text-xs text-stone-400">另有 {group.bookmarks.length - 5} 个书签</div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -101,6 +138,8 @@ export function BookmarkReport({ report, history, onProcessDuplicate }: Bookmark
                   title={bookmark.title}
                   url={bookmark.url}
                   meta={reason}
+                  folderIdPath={bookmark.folderIdPath}
+                  onNavigateToFolder={onNavigateToFolder}
                 />
               ))}
             </ReportSection>
@@ -151,23 +190,43 @@ function BookmarkLine({
   meta,
   lastOpened,
   openCount,
+  folderIdPath,
+  onNavigateToFolder,
 }: {
   title: string;
   url: string;
   meta: string;
   lastOpened?: number;
   openCount?: number;
+  folderIdPath?: string[];
+  onNavigateToFolder?: (folderIdPath: string[]) => void;
 }) {
+  const handleFolderClick = () => {
+    if (folderIdPath && onNavigateToFolder) {
+      onNavigateToFolder(folderIdPath);
+    }
+  };
+
   return (
     <div className="min-w-0 rounded-lg border border-stone-100 bg-white px-3 py-2">
       <div className="truncate text-sm font-medium text-stone-800">{title}</div>
       <div className="mt-0.5 truncate text-xs text-stone-400">{simplifyUrl(url)}</div>
       <div className="mt-1 flex items-center gap-2 truncate text-xs text-stone-500">
-        <span className="flex items-center gap-1 truncate">
+        <span className={`flex items-center gap-1 truncate ${folderIdPath && onNavigateToFolder ? 'cursor-pointer hover:text-stone-700' : ''}`}>
           <svg aria-hidden="true" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.75 6.75h6l1.5 1.5h9A1.5 1.5 0 0 1 21.75 9.75v7.5a1.5 1.5 0 0 1-1.5 1.5H3.75A1.5 1.5 0 0 1 2.25 17.25v-9a1.5 1.5 0 0 1 1.5-1.5Z" />
           </svg>
-          <span className="truncate">{meta}</span>
+          {folderIdPath && onNavigateToFolder ? (
+            <button
+              type="button"
+              onClick={handleFolderClick}
+              className="truncate hover:underline"
+            >
+              {meta}
+            </button>
+          ) : (
+            <span className="truncate">{meta}</span>
+          )}
         </span>
         {openCount !== undefined && openCount > 0 && (
           <span className="shrink-0 text-stone-400">打开 {openCount} 次</span>
