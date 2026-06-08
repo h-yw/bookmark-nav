@@ -186,6 +186,9 @@ export function SearchBar({
           <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
             最近
           </ViewButton>
+          <ViewButton active={viewMode === 'report'} onClick={() => onViewModeChange('report')}>
+            报告
+          </ViewButton>
         </div>
         <div className="flex w-full items-stretch gap-2 lg:max-w-2xl">
           <form
@@ -309,6 +312,9 @@ export function SearchBar({
           </ViewButton>
           <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
             最近
+          </ViewButton>
+          <ViewButton active={viewMode === 'report'} onClick={() => onViewModeChange('report')}>
+            报告
           </ViewButton>
         </div>
       </div>

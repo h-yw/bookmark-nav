@@ -12,6 +12,7 @@ import {
 } from '../components/bookmarks';
 import { Sidebar } from '../components/Sidebar';
 import { BookmarkGrid } from '../components/BookmarkGrid';
+import { BookmarkReport } from '../components/BookmarkReport';
 import { SearchBar } from '../components/SearchBar';
 import { SettingsDrawer } from '../components/SettingsDrawer';
 import {
@@ -27,6 +28,7 @@ import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../components/settings';
 import { createBookmarkNavExportData, normalizeBookmarkNavImportData } from '../components/localData';
+import { createBookmarkReport } from '../components/bookmarkAnalysis';
 import {
   getHistoryBookmarks,
   loadBookmarkHistory,
@@ -68,6 +70,7 @@ function getPageTitle(searchQuery: string, viewMode: ViewMode, selectedFolder: F
   if (searchQuery) return '搜索结果';
   if (viewMode === 'frequent') return '常用书签';
   if (viewMode === 'recent') return '最近打开';
+  if (viewMode === 'report') return '整理报告';
   return selectedFolder?.title ?? '全部书签';
 }
 
@@ -90,6 +93,9 @@ function getPageSubtitle({
   }
   if (viewMode === 'recent') {
     return count > 0 ? `按最近打开时间排序，共 ${count} 个书签` : '打开书签后会自动记录最近列表';
+  }
+  if (viewMode === 'report') {
+    return '本地只读分析，不会修改浏览器书签';
   }
   if (selectedPath.length === 0) return '查看所有已保存的书签';
   return includeNested
@@ -408,6 +414,9 @@ export default function App() {
     if (viewMode === 'recent') {
       return getHistoryBookmarks(allBookmarks, history, 'recent');
     }
+    if (viewMode === 'report') {
+      return [];
+    }
     return getBookmarksInFolder(
       allBookmarks,
       selectedPath,
@@ -431,6 +440,10 @@ export default function App() {
   }, [allBookmarks]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
+  const report = useMemo(
+    () => createBookmarkReport(allBookmarks, folders, history),
+    [allBookmarks, folders, history]
+  );
   const selectedBookmarks = useMemo(
     () => selectedBookmarkIds
       .map((id) => allBookmarks.find((bookmark) => bookmark.id === id))
@@ -522,6 +535,7 @@ export default function App() {
           onViewModeChange={(mode) => {
             setViewMode(mode);
             setSearchQuery('');
+            setSelectedBookmarkIds([]);
           }}
           historyCount={history.length}
           defaultMode={settings.defaultSearchMode}
@@ -531,20 +545,24 @@ export default function App() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
-        <BookmarkGrid
-          bookmarks={displayedBookmarks}
-          isSearching={!!searchQuery}
-          searchQuery={searchQuery}
-          searchEngineLabel={SEARCH_ENGINES_BY_ID[settings.searchEngine]}
-          noResultWebSearch={settings.noResultWebSearch}
-          density={settings.cardDensity}
-          selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
-          selectedBookmarkIds={selectedBookmarkIds}
-          onOpenBookmark={handleOpenBookmark}
-          onBookmarkAction={handleBookmarkAction}
-          onToggleBookmarkSelection={handleToggleBookmarkSelection}
-          onWebSearch={handleWebSearch}
-        />
+        {viewMode === 'report' && !searchQuery ? (
+          <BookmarkReport report={report} />
+        ) : (
+          <BookmarkGrid
+            bookmarks={displayedBookmarks}
+            isSearching={!!searchQuery}
+            searchQuery={searchQuery}
+            searchEngineLabel={SEARCH_ENGINES_BY_ID[settings.searchEngine]}
+            noResultWebSearch={settings.noResultWebSearch}
+            density={settings.cardDensity}
+            selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
+            selectedBookmarkIds={selectedBookmarkIds}
+            onOpenBookmark={handleOpenBookmark}
+            onBookmarkAction={handleBookmarkAction}
+            onToggleBookmarkSelection={handleToggleBookmarkSelection}
+            onWebSearch={handleWebSearch}
+          />
+        )}
       </main>
       {selectedBookmarks.length > 0 && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
