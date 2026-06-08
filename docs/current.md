@@ -2,16 +2,15 @@
 
 ## TODO
 
-- [x] Add restore helpers for operation snapshots.
-- [x] Add settings UI to view recent snapshots and confirm restore.
-- [x] Add tests for restore planning and snapshot management.
+- [x] Allow snapshot restore when the original folder no longer exists by using a fallback folder.
+- [x] Update restore preview reasons.
+- [x] Add tests for fallback restore behavior.
 - [x] Run `pnpm verify` with `nvm use v22`.
 - [x] Record the result.
 
 ## Result
 
-- Added operation snapshot restore planning for batch-delete and batch-move snapshots.
-- Added a settings dialog to preview, restore, or remove recent operation snapshots.
-- Restore recreates deleted bookmarks in their original folder when possible, and moves existing bookmarks back for move snapshots.
-- Added tests for restore plans and snapshot removal.
+- Snapshot restore now falls back to the first root folder when the original folder no longer exists.
+- Restore preview explains fallback restores with `原文件夹不存在，将恢复到默认文件夹`.
+- Added tests for fallback recreation and fallback move restore.
 - `source ~/.nvm/nvm.sh && nvm use v22 && pnpm verify` passed.

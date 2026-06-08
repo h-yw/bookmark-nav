@@ -522,7 +522,7 @@ export function OperationSnapshotsDialog({
                       <div className="mt-0.5 truncate text-xs text-stone-400">{item.bookmark.url}</div>
                       <div className={`mt-1 text-xs ${item.canRestore ? 'text-stone-500' : 'text-red-500'}`}>
                         {item.canRestore
-                          ? item.action === 'create' ? '将重新创建' : '将移回原文件夹'
+                          ? item.reason ?? (item.action === 'create' ? '将重新创建' : '将移回原文件夹')
                           : item.reason}
                       </div>
                     </div>

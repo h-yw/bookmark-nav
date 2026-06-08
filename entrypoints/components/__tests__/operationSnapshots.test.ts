@@ -184,4 +184,48 @@ describe('operation snapshots', () => {
       reason: '当前书签不存在',
     });
   });
+
+  it('falls back when recreating a deleted bookmark and the original folder is missing', () => {
+    const snapshot = createOperationSnapshot({
+      type: 'batch-delete',
+      bookmarks: [bookmark],
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [], new Set(['fallback']), 'fallback')).toEqual([
+      {
+        action: 'create',
+        bookmark,
+        parentId: 'fallback',
+        canRestore: true,
+        fallback: true,
+        reason: '原文件夹不存在，将恢复到默认文件夹',
+      },
+    ]);
+  });
+
+  it('falls back when moving a bookmark back and the original folder is missing', () => {
+    const movedBookmark = {
+      ...bookmark,
+      folderIdPath: ['2'],
+    };
+    const snapshot = createOperationSnapshot({
+      type: 'batch-move',
+      bookmarks: [bookmark],
+      targetFolderId: '2',
+      createdAt: 100,
+    });
+
+    expect(createOperationSnapshotRestorePlan(snapshot, [movedBookmark], new Set(['fallback']), 'fallback')).toEqual([
+      {
+        action: 'move',
+        bookmark,
+        currentBookmark: movedBookmark,
+        parentId: 'fallback',
+        canRestore: true,
+        fallback: true,
+        reason: '原文件夹不存在，将恢复到默认文件夹',
+      },
+    ]);
+  });
 });

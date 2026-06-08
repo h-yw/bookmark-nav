@@ -477,13 +477,14 @@ export default function App() {
     [allBookmarks, folders, history]
   );
   const validFolderIds = useMemo(() => new Set(getFolderIds(folders)), [folders]);
+  const fallbackFolderId = folders[0]?.id;
   const operationSnapshotRestorePlans = useMemo(() => {
     const plans = new Map<string, ReturnType<typeof createOperationSnapshotRestorePlan>>();
     for (const snapshot of operationSnapshots) {
-      plans.set(snapshot.id, createOperationSnapshotRestorePlan(snapshot, allBookmarks, validFolderIds));
+      plans.set(snapshot.id, createOperationSnapshotRestorePlan(snapshot, allBookmarks, validFolderIds, fallbackFolderId));
     }
     return plans;
-  }, [allBookmarks, operationSnapshots, validFolderIds]);
+  }, [allBookmarks, fallbackFolderId, operationSnapshots, validFolderIds]);
   const selectedBookmarks = useMemo(
     () => selectedBookmarkIds
       .map((id) => allBookmarks.find((bookmark) => bookmark.id === id))

@@ -17,6 +17,7 @@ export interface OperationSnapshotRestorePlan {
   parentId?: string;
   canRestore: boolean;
   reason?: string;
+  fallback?: boolean;
 }
 
 export interface CreateOperationSnapshotInput {
@@ -116,7 +117,8 @@ export function clearOperationSnapshots(): void {
 export function createOperationSnapshotRestorePlan(
   snapshot: OperationSnapshot,
   currentBookmarks: BookmarkItem[],
-  validFolderIds: Set<string>
+  validFolderIds: Set<string>,
+  fallbackFolderId?: string
 ): OperationSnapshotRestorePlan[] {
   const currentById = new Map(currentBookmarks.map((bookmark) => [bookmark.id, bookmark]));
   const currentByUrl = new Map(currentBookmarks.map((bookmark) => [bookmark.url, bookmark]));
@@ -136,6 +138,16 @@ export function createOperationSnapshotRestorePlan(
         };
       }
       if (!originalParentId || !validFolderIds.has(originalParentId)) {
+        if (fallbackFolderId && validFolderIds.has(fallbackFolderId)) {
+          return {
+            action: 'create',
+            bookmark,
+            parentId: fallbackFolderId,
+            canRestore: true,
+            fallback: true,
+            reason: '原文件夹不存在，将恢复到默认文件夹',
+          };
+        }
         return {
           action: 'create',
           bookmark,
@@ -160,6 +172,17 @@ export function createOperationSnapshotRestorePlan(
       };
     }
     if (!originalParentId || !validFolderIds.has(originalParentId)) {
+      if (fallbackFolderId && validFolderIds.has(fallbackFolderId)) {
+        return {
+          action: 'move',
+          bookmark,
+          currentBookmark,
+          parentId: fallbackFolderId,
+          canRestore: true,
+          fallback: true,
+          reason: '原文件夹不存在，将恢复到默认文件夹',
+        };
+      }
       return {
         action: 'move',
         bookmark,
