@@ -7,7 +7,7 @@
 - 框架：WXT 0.20+ (已初始化，React 模板)
 - UI：React 19 + Tailwind CSS v4
 - 语言：TypeScript
-- 图标：使用 `chrome://favicon/size/32@2x/{origin}` 获取网站图标（扩展内可用，无限流，传 `new URL(url).origin`）
+- 图标：优先使用 `{origin}/favicon.ico` 获取网站图标，失败后使用 DuckDuckGo favicon 服务兜底；`chrome://favicon` 在 Edge 中会被转译为 `edge://` 并被拦截，因此当前不使用
 
 ## 功能需求
 
@@ -104,7 +104,7 @@ entrypoints/
 └── components/
     ├── types.ts           # BookmarkItem, FolderNode, ViewMode 类型
     ├── bookmarks.ts       # 书签树解析、过滤与相关性排序工具函数
-    ├── favicon.ts         # chrome://favicon URL 生成 + 缓存
+    ├── favicon.ts         # favicon URL 生成 + 缓存
     ├── history.ts         # 书签打开历史（常用/最近）
     ├── settings.ts        # 应用设置（localStorage 持久化）
     ├── utils.ts           # simplifyUrl, openUrl 共享工具
@@ -151,7 +151,7 @@ type ViewMode = 'folder' | 'frequent' | 'recent';
 ```
 
 ### 注意事项
-- 用 `chrome://favicon/size/32@2x/{origin}` 获取 favicon，不依赖外部 API
+- 用 `{origin}/favicon.ico` 作为 favicon 首选地址，DuckDuckGo favicon 服务作为 fallback；当前不使用 `chrome://favicon`，以避免 Edge 兼容问题
 - 书签可能有几千个，网格用 flex-wrap 布局；当前不使用虚拟列表
 - 搜索不引入模糊搜索库，使用本地权重排序：标题、域名、URL、文件夹路径；高级语法支持多关键词、排除词、域名限定和前置 `@文件夹`
 - 历史记录只存储常用/最近视图所需数据；书签删除或 URL 失效后自动剔除

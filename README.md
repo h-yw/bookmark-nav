@@ -126,7 +126,7 @@ Dependabot 每周检查 npm 依赖和 GitHub Actions 更新，并按 semantic-re
 
 扩展只声明 `bookmarks` 权限，用于读取和管理浏览器书签。
 
-当前设计不注入页面，不包含 `content_scripts`，也不需要网络权限。favicon 使用浏览器内部的 `chrome://favicon/size/32@2x/{origin}` 方案，并带本地缓存和兜底图标。
+当前设计不注入页面，不包含 `content_scripts`，也不声明额外 host permissions。favicon 优先使用站点 `{origin}/favicon.ico`，失败后使用 DuckDuckGo favicon 服务兜底，并带本地 URL 缓存。
 
 Firefox 构建当前未声明数据收集权限；WXT 的相关提醒已在配置中压制。后续如果正式上架 Firefox，需要按 Mozilla 最新要求复核数据收集声明。
 
