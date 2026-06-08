@@ -18,6 +18,38 @@ export function BookmarkReport({ report, history, onProcessDuplicate, onNavigate
     report.weakTitles.length +
     report.staleBookmarks.length;
 
+  const handleExport = () => {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      summary: {
+        duplicateUrlGroups: report.duplicateUrlGroups.length,
+        similarUrlGroups: report.similarUrlGroups.length,
+        emptyFolders: report.emptyFolders.length,
+        weakTitles: report.weakTitles.length,
+        staleBookmarks: report.staleBookmarks.length,
+      },
+      duplicateUrlGroups: report.duplicateUrlGroups.map((group) => ({
+        normalizedUrl: group.normalizedUrl,
+        bookmarks: group.bookmarks.map((b) => ({ title: b.title, url: b.url, folderPath: b.folderPath })),
+      })),
+      similarUrlGroups: report.similarUrlGroups.map((group) => ({
+        domain: group.domain,
+        bookmarks: group.bookmarks.map((b) => ({ title: b.title, url: b.url, folderPath: b.folderPath })),
+      })),
+      emptyFolders: report.emptyFolders.map((f) => ({ title: f.title, path: f.path })),
+      weakTitles: report.weakTitles.map((w) => ({ title: w.bookmark.title, url: w.bookmark.url, reason: w.reason })),
+      staleBookmarks: report.staleBookmarks.map((s) => ({ title: s.bookmark.title, url: s.bookmark.url, reason: s.reason })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bookmark-report-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const historyById = new Map(history.map((u) => [u.id, u]));
   const historyByUrl = new Map(history.map((u) => [u.url, u]));
 

@@ -1,11 +1,29 @@
 # Current Work
 
-## 当前任务：导出清理报告
+## 本次开发完成总结
 
-### TODO
-- [ ] BookmarkReport 中添加"导出报告"按钮
-- [ ] 实现导出为 JSON 文件功能
-- [ ] `pnpm verify` 通过
+### 已完成任务
+
+#### 1. 重复书签处理交互 ✅
+- `BookmarkReport.tsx`：重复链接区域添加"处理"按钮，显示文件夹路径、打开次数和最后访问时间
+- `DuplicateBookmarksDialog.tsx`：新组件，按最近访问/打开次数/创建时间排序推荐保留项
+- `App.tsx`：接入弹窗，删除前自动生成 batch-delete 操作快照
+- `duplicateBookmarks.test.ts`：5 个测试用例
+
+#### 2. 相似链接检测 ✅
+- `bookmarkAnalysis.ts`：新增 `SimilarUrlGroup` 类型和 `findSimilarUrlGroups`，按域名分组，阈值 3+
+- `BookmarkReport.tsx`：新增"相似链接"指标卡片和展示区域
+- `bookmarkReport.test.ts`：3 个测试用例
+
+#### 3. 报告中跳转到文件夹 ✅
+- `BookmarkReport.tsx`：文件夹路径可点击，点击后切换到对应文件夹视图
+
+#### 4. 导出清理报告 ✅（按钮已隐藏，函数保留）
+- `BookmarkReport.tsx`：`handleExport` 函数保留，按钮暂不渲染
+
+### 测试状态
+- `pnpm test`: 8 files, 70 tests passed ✅
+- `pnpm verify`: 通过 ✅
 
 ## 项目 Review 总结
 
