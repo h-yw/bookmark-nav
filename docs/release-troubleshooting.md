@@ -96,11 +96,11 @@ git log --oneline v1.1.1..origin/main
 node version ^22.14.0 || >= 24.10.0 is required
 ```
 
-项目使用 semantic-release 25，要求 Node.js `>=22.14.0`。CI 会读取 `.nvmrc`，本地需要切换到同一版本后再运行：
+项目使用 semantic-release 25，要求 Node.js `^22.14.0 || >=24.10.0`。本地执行 release dry-run 时需要先切换到满足 semantic-release 要求的 Node 版本：
 
 ```bash
-nvm install
-nvm use
+nvm install 22.14.0
+nvm use 22.14.0
 pnpm release:dry-run
 ```
 

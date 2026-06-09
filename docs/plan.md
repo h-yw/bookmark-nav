@@ -4,11 +4,11 @@
 
 ## 当前版本：v1.1.1
 
-MVP 功能全部完成，阶段二大部分完成。
+MVP 功能全部完成，阶段二健康检查主要功能已完成。当前重点转入 v1.2 发布准备和稳定性收口。
 
 ---
 
-## 阶段一：稳定发布版（~80%）
+## 阶段一：稳定发布版（~90%）
 
 核心功能已完成，剩余发布准备工作。
 
@@ -20,16 +20,17 @@ MVP 功能全部完成，阶段二大部分完成。
 | CI/CD 自动发布 | ✅ | semantic-release |
 | 搜索排序优化 | ✅ | 标题/域名/URL/路径权重 |
 | 搜索历史提升 | ✅ | 常用/最近加权 |
-| 测试覆盖 | ✅ | 70 tests passing |
+| 测试覆盖 | ✅ | 80 tests passing |
 | manifest 权限检查 | ✅ | check-release-manifest.cjs |
-| 仓库 description/topics/license | ❌ | 待补 |
-| README 产品截图 | ❌ | 待补 |
+| 工程结构整理 | ✅ | WXT `srcDir: 'src'`，按 entrypoints/components/domain/storage/shared 分层 |
+| 仓库 description/topics/license | 🟡 | MIT license 已补，GitHub description/topics 待在仓库设置中配置 |
+| README 产品截图 | 🟡 | 已补截图占位，待替换真实截图 |
 | Chrome/Edge 商店截图 | ❌ | 待补 |
-| 用户文档 | 🟡 | README 已有基础 |
+| 用户文档 | ✅ | 安装、权限、FAQ、Release 产物说明已覆盖 |
 
 ---
 
-## 阶段二：书签健康检查（~85%）
+## 阶段二：书签健康检查（~90%）
 
 | 任务 | 状态 | 备注 |
 |------|------|------|
@@ -42,8 +43,29 @@ MVP 功能全部完成，阶段二大部分完成。
 | 快照恢复 | ✅ | 含备用文件夹 |
 | 重复书签处理交互 | ✅ | DuplicateBookmarksDialog |
 | 报告中跳转文件夹 | ✅ | 文件夹路径可点击 |
+| 最近检测记录 | ✅ | 保留最近一次失效链接检测记录并在报告展示 |
+| 报告链接跳转 | ✅ | 报告中的书签链接可点击打开 |
 | 导出清理报告 | 🟡 | 函数保留，按钮暂隐藏 |
 | 失效链接检测 | ✅ | no-cors 模式，手动触发 |
+
+---
+
+## v1.2 发布准备
+
+目标：把当前功能整理成可公开发布的稳定版本，优先补齐文档、授权、截图和发布检查闭环，不引入大范围新功能。
+
+| 任务 | 状态 | 备注 |
+|------|------|------|
+| MIT License | ✅ | `LICENSE` + `package.json` metadata |
+| README 安装路径 | ✅ | Chrome/Edge/Firefox 手动加载说明 |
+| README 权限解释 | ✅ | bookmarks-only，无 content_scripts |
+| README FAQ | ✅ | 数据、favicon、导入导出、撤销边界 |
+| README 与原生管理器区别 | ✅ | 明确使用边界 |
+| README Release 产物说明 | ✅ | zip 和 checksums |
+| 发布检查清单 | ✅ | `docs/release-checklist.md` |
+| 真实产品截图 | ❌ | 待用本地构建或商店素材补齐 |
+| 商店描述文案 | ❌ | Chrome/Edge 上架前补齐 |
+| 仓库 description/topics | ❌ | 需要在 GitHub 仓库设置中配置 |
 
 ---
 
@@ -84,8 +106,8 @@ MVP 功能全部完成，阶段二大部分完成。
 
 ## 版本节奏建议
 
-- `1.1.x`：阶段二收尾（失效链接检测）
-- `1.2.x`：发布准备（仓库元数据、商店截图）+ 操作历史
+- `1.1.x`：阶段二收尾（失效链接检测、检测记录、工程结构迁移）
+- `1.2.x`：发布准备（License、README、release checklist、截图/商店素材）
 - `1.3.x`：批量改名 + 标签系统
 - `1.4.x`：工作区 + 命令面板
 - `2.0.x`：AI 辅助或同步（如果引入）

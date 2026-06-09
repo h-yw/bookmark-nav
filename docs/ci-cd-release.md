@@ -2,7 +2,7 @@
 
 本项目使用一条 `.github/workflows/ci.yml` 工作流完成质量检查、构建产物上传和 semantic-release 自动发布。
 
-CI 使用 `.nvmrc` 指定 Node.js 版本。当前 semantic-release 版本要求 Node.js `>=22.14.0`，本地执行 release dry-run 前需要先确认 Node 版本满足要求。
+CI 的 `quality` job 使用 `.nvmrc` 指定 Node.js 版本。当前 semantic-release 版本要求 Node.js `^22.14.0 || >=24.10.0`，因此 `release` job 显式使用 Node.js `22.14.0`。
 
 ## 触发方式
 
