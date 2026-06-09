@@ -1,23 +1,20 @@
-# Current Work
+# 当前工作
 
-## TODO
+## 待办
 
-- [x] Update `docs/plan.md` for v1.2 release-prep scope and current test count.
-- [x] Add MIT license file and package metadata.
-- [x] Expand README with install paths, permission explanation, FAQ, native manager comparison, release artifacts, and screenshot placeholders.
-- [x] Add release checklist documentation.
-- [x] Run verification with `nvm use v22`.
-- [x] Record the result.
+- [x] 检查 `docs/` 下的英文内容。
+- [x] 将非必要英文文档内容改为中文。
+- [x] 保留必要的产品名、平台名、命令、权限字段和商店关键词。
+- [x] 使用 `nvm use v22` 运行验证。
+- [x] 记录结果。
 
-## Result
+## 结果
 
-- Updated `docs/plan.md` with v1.2 release-prep scope, 80 passing tests, recent health-check additions, and source structure migration status.
-- Added MIT license metadata in `package.json` and a root `LICENSE` file.
-- Expanded `README.md` with screenshot checklist link, corrected Node.js requirement, release checklist link, MIT license section, and CI release Node.js note.
-- Added `docs/release-checklist.md` for automated verification, manifest review, smoke testing, release artifacts, documentation, and store submission prep.
-- Added `docs/screenshots/README.md` with required product screenshot placeholders and privacy notes.
-- Updated CI release job to use Node.js `22.14.0` for semantic-release 25 while keeping quality checks on `.nvmrc`.
-- Updated release docs/troubleshooting to explain the quality/release Node.js version split.
-- Validation passed: `source ~/.nvm/nvm.sh && nvm use v22 && pnpm verify`.
-- Manifest check confirmed Chrome permissions are only `bookmarks` and `content_scripts` is absent.
-- Whitespace check passed: `git diff --check`.
+- 已将 `docs/store-listing.md` 改为中文维护，保留 Chrome Web Store、Microsoft Edge Add-ons、权限字段和商店关键词等必要英文。
+- 已将 `docs/release-checklist.md` 改为中文。
+- 已将 `docs/screenshots/README.md` 改为中文。
+- 已将 `docs/ci-cd-release.md`、`docs/release-troubleshooting.md`、`docs/plan.md` 中非必要英文标题和描述改为中文。
+- 保留了命令、文件名、manifest 字段、权限名、平台名、产品名和商店关键词等必要原文。
+- 验证通过：`source ~/.nvm/nvm.sh && nvm use v22 && pnpm verify`。
+- Manifest 抽查确认 Chrome permissions 只有 `bookmarks`，且不存在 `content_scripts`。
+- 空白检查通过：`git diff --check`。
