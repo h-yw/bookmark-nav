@@ -1,32 +1,81 @@
 # Bookmark Nav
 
-浏览器书签导航页扩展。它会覆盖浏览器新标签页，把 Chrome / Edge 书签转换成一个可搜索、可分组、可管理的网址导航页。
+Bookmark Nav 是一个浏览器书签导航页扩展。它会替换新标签页，把 Chrome / Edge / Firefox 的书签变成一个可搜索、可分组、可轻量整理的网址导航页。
+
+它适合书签很多、经常需要查资料、希望在新标签页快速打开常用入口的人。Bookmark Nav 保留浏览器原生书签树作为唯一真实来源，不需要账号，不提供云同步，也不会把书签上传到服务器。
 
 ## 功能亮点
 
-- 新标签页导航：打开新标签页即可浏览所有浏览器书签。
-- 文件夹侧边栏：按浏览器书签文件夹展示，支持当前文件夹或包含子文件夹两种范围。
-- 书签卡片：favicon、标题、域名和文件夹路径清晰展示，支持舒适/紧凑密度。
-- 书签管理：单个书签支持复制链接、编辑、移动、删除；多选后支持批量复制、批量移动和批量删除。
-- 搜索增强：按标题、域名、URL、文件夹路径匹配，并按相关性排序。
-- 网页搜索：可在 Google、Bing、DuckDuckGo、百度之间切换，书签无结果时可继续网页搜索。
-- 常用/最近：自动记录打开历史，生成常用书签和最近打开视图。
-- 设置页：配置搜索、展示和数据管理；支持导出/导入本地设置与历史记录。
-- 安全确认：删除、批量删除、移动、清空记录、恢复默认和清理本地数据均使用应用内确认弹窗。
+- 新标签页书签导航：打开新标签页即可浏览所有书签。
+- 文件夹侧边栏：按浏览器书签文件夹展示，支持只看当前文件夹或包含子文件夹。
+- 快速搜索：按标题、域名、URL、文件夹路径匹配，并按相关性排序。
+- 常用 / 最近打开：本地记录打开历史，自动生成高频入口。
+- 书签管理：支持复制链接、编辑、移动、删除，以及批量复制、批量移动、批量删除。
+- 整理报告：检查重复链接、相似链接、空文件夹、标题异常、长期未打开和疑似失效链接。
+- 本地数据管理：导出/导入设置、常用/最近记录和操作快照。
+- 最小权限：只申请 `bookmarks` 权限，不注入网页。
 
-## 产品截图
+## 截图
 
-截图素材清单见 [docs/screenshots/README.md](docs/screenshots/README.md)。正式发布前建议补齐以下截图：
+截图素材见 [docs/screenshots](docs/screenshots)。
 
-- 新标签页首页：侧边栏文件夹、搜索栏和书签网格。
-- 搜索结果：展示匹配数量、文件夹路径和网页搜索入口。
+![新标签页首页](docs/screenshots/search-home.png)
+
+![整理报告](docs/screenshots/bookmark-report.png)
+
+![设置面板](docs/screenshots/settings-drawer.png)
+
+- 新标签页首页：侧边栏、搜索栏和书签网格。
+- 搜索结果：展示匹配书签、文件夹路径和网页搜索入口。
 - 整理报告：展示重复链接、长期未打开和最近失效检测记录。
-- 设置面板：展示搜索、展示、数据分组。
-- 批量操作确认：展示删除或移动前的应用内确认弹窗。
+- 设置面板：展示搜索、展示、数据管理配置。
+- 批量确认：删除或移动前的确认弹窗。
 
-## 搜索语法
+## 安装
 
-搜索框支持普通关键词，也支持组合语法：
+### Chrome / Edge
+
+正式上架后，建议优先从 Chrome Web Store 或 Microsoft Edge Add-ons 安装。
+
+如果使用 GitHub Release 安装：
+
+1. 下载 `bookmark-nav-<version>-chrome.zip`。
+2. 解压到本地目录。解压后的目录中应直接包含 `manifest.json`、`newtab.html`、`popup.html` 等扩展文件。
+3. 打开浏览器扩展管理页。
+4. 开启“开发者模式”。
+5. 选择“加载已解压的扩展”。
+6. 选择刚才解压出的扩展目录。
+
+如果使用 GitHub Actions 的临时构建产物，下载并解压 `chrome-mv3` artifact 后，选择其中的 `chrome-mv3/` 目录。
+
+Release 中的 `bookmark-nav-<version>-sources.zip` 是源码包，不是浏览器安装包；`checksums.txt` 用于校验下载文件完整性。
+
+安装后打开新标签页即可使用。
+
+### Firefox
+
+GitHub Release 中的 Firefox 包是 `bookmark-nav-<version>-firefox.zip`。正式上架 Firefox Add-ons 前，建议仅用于开发测试或临时加载。
+
+如果使用 GitHub Actions 的临时构建产物，下载并解压 `firefox-mv2` artifact 后，可在 Firefox 调试页面临时加载其中的扩展文件。
+
+## 基本使用
+
+### 浏览和打开书签
+
+打开新标签页后，左侧是书签文件夹，右侧是书签卡片。点击卡片会在当前标签页打开对应网址。
+
+设置中可以调整书签展示范围：
+
+- 当前文件夹
+- 当前文件夹及子文件夹
+
+也可以切换卡片密度，让列表更舒适或更紧凑。
+
+### 搜索书签
+
+顶部搜索框会在所有书签中搜索。支持标题、域名、URL 和文件夹路径匹配。
+
+常用搜索写法：
 
 ```text
 react docs              # 同时匹配 react 和 docs
@@ -43,227 +92,110 @@ site:github.com react   # 只搜索 github.com 域名下的书签
 - `Ctrl K` / `Cmd K`：切换书签搜索和网页搜索
 - `Esc`：关闭弹窗/设置面板，或清空并退出搜索框
 
-## 安装使用
+### 整理书签
 
-### Chrome / Edge 商店安装
+Bookmark Nav 提供只读整理报告，帮助你先看到问题，再决定是否处理。
 
-正式上架后，优先通过 Chrome Web Store 或 Edge Add-ons 安装。安装后打开新标签页即可使用，浏览器会提示扩展需要读取和管理书签，这是本扩展唯一必需权限。
+报告会展示：
 
-### Chrome / Edge 手动加载
+- 重复链接
+- 相似链接
+- 空文件夹
+- 标题异常
+- 长期未打开书签
+- 最近一次失效链接检测记录
 
-项目要求 Node.js `>=22.12.0`，本仓库 `.nvmrc` 固定为 `22.12.0`。
+失效链接检测需要手动触发，不会在后台自动检测。检测可能会对书签 URL 发起浏览器请求。
 
-```bash
-pnpm install
-pnpm build
-```
+### 管理本地数据
 
-构建产物在 `.output/chrome-mv3/`。在 Chrome / Edge 扩展管理页打开“开发者模式”，选择“加载已解压的扩展”，然后选择该目录。
+设置面板的数据分组支持：
 
-### Firefox 手动加载
+- 导出本地数据
+- 导入本地数据
+- 清空常用/最近记录
+- 清理扩展本地数据
 
-```bash
-pnpm build:firefox
-```
+导出/导入只处理扩展本地设置、常用/最近记录和操作快照，不导出浏览器书签树，也不会修改浏览器书签。
 
-构建产物在 `.output/firefox-mv2/`。Firefox 正式上架前，建议仅用于开发测试；上架前需要按 Mozilla 最新要求复核权限和数据收集声明。
+## 权限与隐私
 
-### 开发模式
+Bookmark Nav 只声明 `bookmarks` 权限。
 
-```bash
-pnpm install
-pnpm dev
-```
+该权限用于：
 
-`pnpm dev` 会以 Edge 开发模式启动 WXT。启动后按终端提示安装或加载扩展。
+- 读取浏览器书签树并展示在新标签页
+- 本地搜索书签
+- 在用户确认后编辑、移动或删除书签
+- 监听书签变化并刷新页面
 
-## 开发命令
+Bookmark Nav 不声明 `content_scripts`，不向网页注入脚本，也不申请额外 host permissions。
 
-```bash
-pnpm dev          # Edge 开发模式，支持 HMR
-pnpm dev:firefox  # Firefox 开发模式
-pnpm build        # Chrome MV3 生产构建
-pnpm build:firefox # Firefox 生产构建
-pnpm zip          # 打包 Chrome 扩展
-pnpm compile      # TypeScript 类型检查
-pnpm test         # 运行 Vitest
-pnpm test:watch   # 监听模式运行测试
-pnpm lint         # Biome 检查
-pnpm lint:fix     # 自动修复可修复问题
-pnpm verify       # 完整验证：类型检查、测试、lint、Chrome/Firefox 构建和 manifest 检查
-pnpm release:dry-run # 检查 semantic-release 配置和发布分析，不创建 tag/release
-```
+数据处理方式：
 
-## CI/CD 与发布
-
-仓库使用一条 GitHub Actions 工作流完成 CI/CD：
-
-- `quality` job：在 PR 以及 `main` / `master` push 时运行 PR 标题校验、类型检查、测试、lint、Chrome/Firefox 生产构建和 manifest 权限检查，并上传保留 7 天的 Chrome MV3 / Firefox MV2 构建产物。
-- `release` job：仅在 `main` / `master` push 时运行，等待 `quality` 通过后执行 semantic-release，根据 Conventional Commits 自动计算版本、生成 release notes、创建 `vX.Y.Z` tag、打包 Chrome / Firefox 扩展，并创建 GitHub Release。手动触发只运行质量检查，不发布版本。
-
-`quality` job 使用 `.nvmrc` 的 Node.js 版本；`release` job 使用 Node.js `22.14.0`，以满足 semantic-release 25 的运行要求。
-
-提交信息需要遵循 Conventional Commits：
-
-```text
-fix: 修复搜索结果排序
-feat: 支持批量移动书签
-docs: 更新 README
-chore: 调整构建配置
-```
-
-版本规则：
-
-- `fix:` 触发 patch 版本，例如 `0.1.0` -> `0.1.1`
-- `feat:` 触发 minor 版本，例如 `0.1.0` -> `0.2.0`
-- 含 `BREAKING CHANGE:` 的提交触发 major 版本
-- `docs:`、`chore:` 等默认不会触发发布
-
-当前版本线以远端 `v1.0.0` tag 为基准。后续示例：
-
-- `fix:` 触发 `1.0.1`
-- `feat:` 触发 `1.1.0`
-- breaking change 触发 `2.0.0`
-
-发布产物：
-
-- `.output/*chrome.zip`
-- `.output/*firefox.zip`
-- `.output/*sources.zip`
-- `.output/checksums.txt`
-
-semantic-release 会在发布时把 `package.json` 写入新版本号，再执行 `pnpm zip` 和 `pnpm zip:firefox`，随后校验 manifest 并生成 zip 文件的 SHA-256 校验和。Chrome 扩展 manifest 的版本号必须是 `X.Y.Z` 数字段格式，因此当前 release 配置只启用稳定分支，不启用 `beta` / `alpha` 预发布分支。
-
-正式发布前，release job 会先运行 `pnpm release:dry-run` 检查 semantic-release 配置、远端 tag、提交分析和 release notes 生成流程。
-
-发布前检查清单见 [docs/release-checklist.md](docs/release-checklist.md)。
-
-浏览器商店描述文案见 [docs/store-listing.md](docs/store-listing.md)。
-
-Dependabot 每周检查 npm 依赖和 GitHub Actions 更新，并按 semantic-release、WXT、测试工具等分组创建 PR。
-
-## 技术栈
-
-- WXT 0.20
-- React 19
-- Tailwind CSS v4
-- TypeScript
-- Vitest
-- Biome
-
-## 权限说明
-
-扩展只声明 `bookmarks` 权限，用于读取和管理浏览器书签。
-
-当前设计不注入页面，不包含 `content_scripts`，也不声明额外 host permissions。favicon 优先使用站点 `{origin}/favicon.ico`，失败后使用 DuckDuckGo favicon 服务兜底，并带本地 URL 缓存。
-
-Firefox 构建当前未声明数据收集权限；WXT 的相关提醒已在配置中压制。后续如果正式上架 Firefox，需要按 Mozilla 最新要求复核数据收集声明。
-
-## 数据说明
-
-- 浏览器书签：来自 `chrome.bookmarks`，编辑、移动、删除会直接作用于浏览器书签。
-- 常用/最近记录：保存在扩展本地 `localStorage`，书签失效后会自动剔除。
-- 设置数据：保存在扩展本地 `localStorage`。
-- 操作快照：批量删除或移动前会保存本地快照，用于后续查看或导出备份。
-- 导出/导入：只包含设置、常用/最近记录和操作快照，不包含浏览器书签树。
-
-## 授权
-
-本项目使用 MIT License，详见 [LICENSE](LICENSE)。
+- 浏览器书签来自 `chrome.bookmarks`，修改会直接作用于真实书签。
+- 设置、常用/最近记录、操作快照和最近一次检测记录保存在扩展本地。
+- Bookmark Nav 没有后端服务，不需要账号，不上传书签列表。
+- favicon 会优先加载网站 `{origin}/favicon.ico`，失败后可能使用 DuckDuckGo favicon 服务兜底。
+- 失效链接检测只在用户手动触发时运行。
 
 ## 与浏览器原生书签管理器的区别
 
-Bookmark Nav 面向日常打开新标签页时的快速检索和轻量整理。它保留浏览器原生书签树作为唯一真实来源，不自建远端账户，也不替代浏览器的完整书签管理器。
+Bookmark Nav 更适合日常打开新标签页时快速查找和轻量整理书签。
 
-- 更适合：按关键词快速打开、按文件夹浏览、查看常用/最近、批量复制/移动/删除少量书签。
-- 仍建议使用原生管理器：复杂拖拽排序、大规模文件夹重组、浏览器同步冲突处理。
-- 安全边界：删除和移动会直接作用于浏览器书签；高影响操作均有应用内确认，但当前版本不提供撤销。
+适合用 Bookmark Nav 做：
+
+- 快速搜索并打开书签
+- 按文件夹浏览书签
+- 查看常用和最近打开
+- 发现重复、长期未打开或疑似失效链接
+- 批量复制、移动、删除少量书签
+
+仍建议用浏览器原生书签管理器处理：
+
+- 大规模拖拽排序
+- 复杂文件夹重组
+- 浏览器同步冲突处理
 
 ## 常见问题
 
 **为什么需要 `bookmarks` 权限？**
-用于读取书签树并执行用户确认后的编辑、移动和删除操作。没有该权限无法实现导航页和书签管理。
+
+用于读取书签树，并在用户确认后编辑、移动或删除书签。没有该权限，扩展无法展示和管理浏览器书签。
 
 **会上传我的书签吗？**
-不会。当前版本没有后端服务，不声明额外 host permissions，也不注入网页。导出文件只保存在用户本地。
 
-**favicon 会产生网络请求吗？**
-浏览器加载书签卡片图标时，会优先请求站点 `{origin}/favicon.ico`；失败后使用 DuckDuckGo favicon 服务兜底。
+不会。当前版本没有后端服务，不需要账号，不上传书签列表。
+
+**会注入网页或读取网页内容吗？**
+
+不会。Bookmark Nav 不声明 `content_scripts`，不注入网页。
 
 **导入/导出会修改浏览器书签吗？**
+
 不会。导入/导出只处理扩展本地设置、常用/最近记录和操作快照，不读写浏览器书签树。
 
 **删除书签后能撤销吗？**
-当前页面内不能撤销。删除前会展示确认弹窗；后续路线图会引入操作历史、备份和撤销能力。
 
-## Release 产物说明
+当前版本没有完整撤销功能。删除、批量删除、移动等高影响操作会先显示确认弹窗；后续路线图会继续加强操作历史和撤销能力。
 
-GitHub Release 会包含：
+**失效链接检测会自动运行吗？**
 
-- Chrome / Edge 安装包：`.output/*chrome.zip`
-- Firefox 安装包：`.output/*firefox.zip`
-- 源码包：`.output/*sources.zip`
-- 校验和：`.output/checksums.txt`
+不会。检测需要用户手动点击开始，也可以关闭检测弹窗。
 
-发布前必须确认 Chrome manifest 只声明 `bookmarks` 权限，并且不包含 `content_scripts`。
+## 开发者与发布资料
 
-## 项目结构
+README 主要面向用户。开发、发布和上架资料见：
 
-```text
-src/
-├── entrypoints/
-│   ├── newtab/             # 新标签页主应用
-│   └── popup/              # 工具栏弹窗快速搜索
-├── components/             # React UI 组件
-│   ├── BookmarkCard.tsx
-│   ├── BookmarkGrid.tsx
-│   ├── BookmarkReport.tsx
-│   ├── BookmarkManageDialog.tsx
-│   ├── SearchBar.tsx
-│   ├── SettingsDrawer.tsx
-│   └── Sidebar.tsx
-├── domain/                 # 书签业务逻辑和报告分析
-│   ├── bookmarks.ts
-│   ├── bookmarkAnalysis.ts
-│   └── deadLinkDetection.ts
-├── storage/                # localStorage、导入导出和操作记录
-│   ├── history.ts
-│   ├── settings.ts
-│   ├── localData.ts
-│   ├── operationSnapshots.ts
-│   └── deadLinkRecords.ts
-└── shared/                 # 通用类型、favicon 和 URL 工具
-    ├── types.ts
-    ├── favicon.ts
-    └── utils.ts
-```
+- [需求规格](docs/spec.md)
+- [开发计划](docs/plan.md)
+- [长期路线](docs/roadmap.md)
+- [GitHub Actions 与发布说明](docs/ci-cd-release.md)
+- [发布检查清单](docs/release-checklist.md)
+- [发布故障排查](docs/release-troubleshooting.md)
+- [商店描述文案](docs/store-listing.md)
+- [截图清单](docs/screenshots/README.md)
 
-更多需求细节见 [docs/spec.md](docs/spec.md)。
+## 授权
 
-GitHub Actions 和发布流程说明见 [docs/ci-cd-release.md](docs/ci-cd-release.md)。
-
-发布故障排查见 [docs/release-troubleshooting.md](docs/release-troubleshooting.md)。
-
-发布前检查清单见 [docs/release-checklist.md](docs/release-checklist.md)。
-
-浏览器商店描述文案见 [docs/store-listing.md](docs/store-listing.md)。
-
-## 验证要求
-
-改动后推荐运行完整验证：
-
-```bash
-pnpm verify
-```
-
-如果只改了局部内容，至少运行：
-
-```bash
-pnpm build
-pnpm check:manifest:chrome
-```
-
-并检查 `.output/chrome-mv3/manifest.json`：
-
-- `permissions` 只能包含 `bookmarks`
-- 不应存在 `content_scripts`
+本项目使用 MIT License，详见 [LICENSE](LICENSE)。
