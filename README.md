@@ -199,20 +199,32 @@ GitHub Release 会包含：
 ## 项目结构
 
 ```text
-entrypoints/
-├── newtab/                 # 新标签页主应用
-├── popup/                  # 工具栏弹窗快速搜索
-└── components/             # 共享组件和工具
-    ├── bookmarks.ts        # 书签树解析、搜索、编辑/删除/移动封装
-    ├── favicon.ts          # favicon URL 和缓存
-    ├── history.ts          # 常用/最近记录
-    ├── settings.ts         # 设置归一化和持久化
-    ├── BookmarkCard.tsx    # 书签卡片
-    ├── BookmarkGrid.tsx    # 书签列表布局
-    ├── BookmarkManageDialog.tsx
-    ├── SearchBar.tsx
-    ├── SettingsDrawer.tsx
-    └── Sidebar.tsx
+src/
+├── entrypoints/
+│   ├── newtab/             # 新标签页主应用
+│   └── popup/              # 工具栏弹窗快速搜索
+├── components/             # React UI 组件
+│   ├── BookmarkCard.tsx
+│   ├── BookmarkGrid.tsx
+│   ├── BookmarkReport.tsx
+│   ├── BookmarkManageDialog.tsx
+│   ├── SearchBar.tsx
+│   ├── SettingsDrawer.tsx
+│   └── Sidebar.tsx
+├── domain/                 # 书签业务逻辑和报告分析
+│   ├── bookmarks.ts
+│   ├── bookmarkAnalysis.ts
+│   └── deadLinkDetection.ts
+├── storage/                # localStorage、导入导出和操作记录
+│   ├── history.ts
+│   ├── settings.ts
+│   ├── localData.ts
+│   ├── operationSnapshots.ts
+│   └── deadLinkRecords.ts
+└── shared/                 # 通用类型、favicon 和 URL 工具
+    ├── types.ts
+    ├── favicon.ts
+    └── utils.ts
 ```
 
 更多需求细节见 [docs/spec.md](docs/spec.md)。
