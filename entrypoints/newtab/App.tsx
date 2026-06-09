@@ -27,6 +27,7 @@ import {
   ResetSettingsDialog,
 } from '../components/BookmarkManageDialog';
 import { DuplicateBookmarksDialog } from '../components/DuplicateBookmarksDialog';
+import { DeadLinkDetectionDialog } from '../components/DeadLinkDetectionDialog';
 import type { DuplicateUrlGroup } from '../components/bookmarkAnalysis';
 import type { BookmarkCardAction } from '../components/BookmarkCard';
 import type { AppSettings, SearchEngineId } from '../components/settings';
@@ -51,6 +52,14 @@ import {
   saveOperationSnapshots,
   type OperationSnapshot,
 } from '../components/operationSnapshots';
+import {
+  clearDeadLinkDetectionRecord,
+  createDeadLinkDetectionRecord,
+  loadDeadLinkDetectionRecord,
+  saveDeadLinkDetectionRecord,
+  type DeadLinkDetectionRecord,
+} from '../components/deadLinkRecords';
+import type { DeadLinkDetectionProgress, DeadLinkResult } from '../components/deadLinkDetection';
 import { openUrl } from '../components/utils';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
@@ -131,6 +140,7 @@ export default function App() {
   const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
   const [movingBookmarks, setMovingBookmarks] = useState<BookmarkItem[]>([]);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [clearingLocalData, setClearingLocalData] = useState(false);
@@ -139,6 +149,8 @@ export default function App() {
   const [operationSnapshotsOpen, setOperationSnapshotsOpen] = useState(false);
   const [restoringSnapshotId, setRestoringSnapshotId] = useState<string | null>(null);
   const [duplicateGroup, setDuplicateGroup] = useState<DuplicateUrlGroup | null>(null);
+  const [deadLinkDetectionOpen, setDeadLinkDetectionOpen] = useState(false);
+  const [deadLinkRecord, setDeadLinkRecord] = useState<DeadLinkDetectionRecord | null>(() => loadDeadLinkDetectionRecord());
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -269,7 +281,9 @@ export default function App() {
     setHistory([]);
     saveBookmarkHistory([]);
     clearOperationSnapshots();
+    clearDeadLinkDetectionRecord();
     setOperationSnapshots([]);
+    setDeadLinkRecord(null);
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -381,19 +395,21 @@ export default function App() {
   };
 
   const handleDeleteSelectedBookmarks = async () => {
-    if (selectedBookmarks.length === 0) return;
+    const targetBookmarks = batchDeletingBookmarks.length > 0 ? batchDeletingBookmarks : selectedBookmarks;
+    if (targetBookmarks.length === 0) return;
     setActionError(null);
     setActionPending(true);
     try {
       setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
         type: 'batch-delete',
-        bookmarks: selectedBookmarks,
+        bookmarks: targetBookmarks,
       })));
       const result = await executeBookmarkBatchOperation(
-        selectedBookmarks,
+        targetBookmarks,
         (bookmark) => removeBookmark(bookmark.id)
       );
       setBatchDeleting(false);
+      setBatchDeletingBookmarks([]);
       const succeededIds = new Set(result.succeeded.map((bookmark) => bookmark.id));
       setSelectedBookmarkIds((ids) => ids.filter((id) => !succeededIds.has(id)));
       if (result.failed.length > 0) {
@@ -464,6 +480,23 @@ export default function App() {
       loadBookmarks(false);
       setActionPending(false);
     }
+  };
+
+  const handleDeleteDeadLinks = async (deadBookmarks: BookmarkItem[]) => {
+    if (deadBookmarks.length === 0) return;
+    setActionError(null);
+    setDeadLinkDetectionOpen(false);
+    setBatchDeletingBookmarks(deadBookmarks);
+    setBatchDeleting(true);
+  };
+
+  const handleDeadLinkDetectionComplete = (
+    progress: DeadLinkDetectionProgress,
+    results: DeadLinkResult[]
+  ) => {
+    const record = createDeadLinkDetectionRecord(progress, results);
+    setDeadLinkRecord(record);
+    saveDeadLinkDetectionRecord(record);
   };
 
   const displayedBookmarks = useMemo(() => {
@@ -657,12 +690,15 @@ export default function App() {
           <BookmarkReport
             report={report}
             history={history}
+            allBookmarks={allBookmarks}
+            deadLinkRecord={deadLinkRecord}
             onProcessDuplicate={setDuplicateGroup}
             onNavigateToFolder={(folderIdPath) => {
               setSelectedPath(folderIdPath);
               setViewMode('folder');
               setSearchQuery('');
             }}
+            onDetectDeadLinks={() => setDeadLinkDetectionOpen(true)}
           />
         ) : (
           <BookmarkGrid
@@ -705,6 +741,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setActionError(null);
+              setBatchDeletingBookmarks(selectedBookmarks);
               setBatchDeleting(true);
             }}
             className="rounded-lg border border-red-100 px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50"
@@ -753,11 +790,12 @@ export default function App() {
         onConfirm={handleDeleteBookmark}
       />
       <DeleteBookmarksDialog
-        bookmarks={batchDeleting ? selectedBookmarks : []}
+        bookmarks={batchDeleting ? batchDeletingBookmarks : []}
         error={batchDeleting ? actionError : null}
         deleting={actionPending}
         onClose={() => {
           setBatchDeleting(false);
+          setBatchDeletingBookmarks([]);
           setActionError(null);
         }}
         onConfirm={handleDeleteSelectedBookmarks}
@@ -818,6 +856,14 @@ export default function App() {
         onClose={() => setDuplicateGroup(null)}
         onConfirm={handleRemoveDuplicates}
       />
+      {deadLinkDetectionOpen && (
+        <DeadLinkDetectionDialog
+          bookmarks={allBookmarks}
+          onClose={() => setDeadLinkDetectionOpen(false)}
+          onComplete={handleDeadLinkDetectionComplete}
+          onDeleteDeadLinks={handleDeleteDeadLinks}
+        />
+      )}
     </div>
   );
 }

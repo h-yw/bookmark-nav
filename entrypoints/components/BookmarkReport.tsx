@@ -1,16 +1,29 @@
 import type { ReactNode } from 'react';
 import type { BookmarkReport as BookmarkReportData, DuplicateUrlGroup } from './bookmarkAnalysis';
+import type { DeadLinkDetectionRecord, DeadLinkDetectionRecordItem } from './deadLinkRecords';
 import type { BookmarkUsage } from './history';
-import { simplifyUrl } from './utils';
+import type { BookmarkItem } from './types';
+import { openUrl, simplifyUrl } from './utils';
 
 interface BookmarkReportProps {
   report: BookmarkReportData;
   history: BookmarkUsage[];
+  allBookmarks: BookmarkItem[];
+  deadLinkRecord: DeadLinkDetectionRecord | null;
   onProcessDuplicate: (group: DuplicateUrlGroup) => void;
   onNavigateToFolder: (folderIdPath: string[]) => void;
+  onDetectDeadLinks: () => void;
 }
 
-export function BookmarkReport({ report, history, onProcessDuplicate, onNavigateToFolder }: BookmarkReportProps) {
+export function BookmarkReport({
+  report,
+  history,
+  allBookmarks,
+  deadLinkRecord,
+  onProcessDuplicate,
+  onNavigateToFolder,
+  onDetectDeadLinks,
+}: BookmarkReportProps) {
   const totalFindings =
     report.duplicateUrlGroups.length +
     report.similarUrlGroups.length +
@@ -64,12 +77,25 @@ export function BookmarkReport({ report, history, onProcessDuplicate, onNavigate
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="重复链接" value={report.duplicateUrlGroups.length} />
-          <MetricCard label="相似链接" value={report.similarUrlGroups.length} />
-          <MetricCard label="标题异常" value={report.weakTitles.length} />
-          <MetricCard label="长期未打开" value={report.staleBookmarks.length} />
+        <div className="flex items-center justify-between gap-3">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard label="重复链接" value={report.duplicateUrlGroups.length} />
+            <MetricCard label="相似链接" value={report.similarUrlGroups.length} />
+            <MetricCard label="标题异常" value={report.weakTitles.length} />
+            <MetricCard label="长期未打开" value={report.staleBookmarks.length} />
+          </div>
+          <button
+            type="button"
+            onClick={onDetectDeadLinks}
+            className="shrink-0 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            检测失效链接
+          </button>
         </div>
+
+        {deadLinkRecord && (
+          <DeadLinkRecordPanel record={deadLinkRecord} bookmarkCount={allBookmarks.length} />
+        )}
 
         {totalFindings === 0 ? (
           <div className="rounded-lg border border-stone-200 bg-white px-5 py-10 text-center shadow-sm">
@@ -182,11 +208,89 @@ export function BookmarkReport({ report, history, onProcessDuplicate, onNavigate
   );
 }
 
+function DeadLinkRecordPanel({
+  record,
+  bookmarkCount,
+}: {
+  record: DeadLinkDetectionRecord;
+  bookmarkCount: number;
+}) {
+  const attentionItems = record.results
+    .filter((item) => item.status !== 'alive')
+    .slice(0, 6);
+  const coverageLabel =
+    record.total === bookmarkCount ? `${record.total} 个书签` : `${record.total} / ${bookmarkCount} 个书签`;
+
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-stone-900">最近失效检测</h2>
+          <div className="mt-1 text-xs text-stone-400">
+            {formatDateTime(record.createdAt)} · 覆盖 {coverageLabel}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center sm:min-w-72">
+          <SmallStat label="可访问" value={record.alive} />
+          <SmallStat label="疑似失效" value={record.dead} />
+          <SmallStat label="无法确认" value={record.unknown} />
+        </div>
+      </div>
+
+      {attentionItems.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {attentionItems.map((item) => (
+            <DeadLinkRecordLine key={item.bookmarkId} item={item} />
+          ))}
+          {record.dead + record.unknown > attentionItems.length && (
+            <div className="text-xs text-stone-400">
+              另有 {record.dead + record.unknown - attentionItems.length} 个需要关注
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm">
       <div className="text-xs text-stone-400">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-stone-900">{value}</div>
+    </div>
+  );
+}
+
+function SmallStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
+      <div className="text-xs text-stone-400">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold text-stone-900">{value}</div>
+    </div>
+  );
+}
+
+function DeadLinkRecordLine({ item }: { item: DeadLinkDetectionRecordItem }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => openUrl(item.url)}
+          className="group/link min-w-0 cursor-pointer rounded-md text-left transition-colors hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70"
+        >
+          <div className="truncate text-sm font-medium text-stone-800 group-hover/link:text-stone-950 group-hover/link:underline">
+            {item.title}
+          </div>
+          <div className="mt-0.5 truncate text-xs text-stone-400 group-hover/link:text-stone-600">
+            {simplifyUrl(item.url)}
+          </div>
+        </button>
+        <span className="shrink-0 rounded-full bg-stone-200 px-2 py-1 text-xs text-stone-600">
+          {formatDeadLinkStatus(item)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -241,8 +345,18 @@ function BookmarkLine({
 
   return (
     <div className="min-w-0 rounded-lg border border-stone-100 bg-white px-3 py-2">
-      <div className="truncate text-sm font-medium text-stone-800">{title}</div>
-      <div className="mt-0.5 truncate text-xs text-stone-400">{simplifyUrl(url)}</div>
+      <button
+        type="button"
+        onClick={() => openUrl(url)}
+        className="group/link block w-full min-w-0 cursor-pointer rounded-md text-left transition-colors hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70"
+      >
+        <div className="truncate text-sm font-medium text-stone-800 group-hover/link:text-stone-950 group-hover/link:underline">
+          {title}
+        </div>
+        <div className="mt-0.5 truncate text-xs text-stone-400 group-hover/link:text-stone-600">
+          {simplifyUrl(url)}
+        </div>
+      </button>
       <div className="mt-1 flex items-center gap-2 truncate text-xs text-stone-500">
         <span className={`flex items-center gap-1 truncate ${folderIdPath && onNavigateToFolder ? 'cursor-pointer hover:text-stone-700' : ''}`}>
           <svg aria-hidden="true" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +366,7 @@ function BookmarkLine({
             <button
               type="button"
               onClick={handleFolderClick}
-              className="truncate hover:underline"
+              className="cursor-pointer truncate rounded-sm hover:text-stone-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70"
             >
               {meta}
             </button>
@@ -269,6 +383,21 @@ function BookmarkLine({
       </div>
     </div>
   );
+}
+
+function formatDeadLinkStatus(item: DeadLinkDetectionRecordItem): string {
+  if (item.status === 'dead') return item.error ? `疑似失效 · ${item.error}` : '疑似失效';
+  return item.error ? `无法确认 · ${item.error}` : '无法确认';
+}
+
+function formatDateTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatRelativeTime(timestamp: number): string {
