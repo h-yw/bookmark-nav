@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { FolderNode } from './types';
+import type { FolderNode } from '../shared/types';
 
 interface SidebarProps {
   folders: FolderNode[];

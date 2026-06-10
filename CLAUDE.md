@@ -43,7 +43,9 @@ pnpm lint:fix     # 自动修复 lint 问题
 
 ## 代码规范
 
-- 组件用具名导出 `export function Xxx()`，放 `entrypoints/components/`
+- WXT 已配置 `srcDir: 'src'`，入口放 `src/entrypoints/`
+- 组件用具名导出 `export function Xxx()`，放 `src/components/`
+- 纯业务逻辑放 `src/domain/`，本地存储/导入导出放 `src/storage/`，通用类型和工具放 `src/shared/`
 - 页面级 `App.tsx` 用默认导出 `export default function App()`
 - 样式只用 Tailwind className，不写 CSS 文件，不用 CSS-in-JS
 - Tailwind v4：用 `@import 'tailwindcss'`，不要用 v3 的 `@tailwind base/components/utilities`

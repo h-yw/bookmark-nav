@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { ReactNode } from 'react';
-import type { ViewMode } from './types';
-import type { SearchEngineId, SearchMode } from './settings';
-import { SEARCH_ENGINES } from './settings';
+import type { ViewMode } from '../shared/types';
+import type { SearchEngineId, SearchMode } from '../storage/settings';
+import { SEARCH_ENGINES } from '../storage/settings';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -186,6 +186,9 @@ export function SearchBar({
           <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
             最近
           </ViewButton>
+          <ViewButton active={viewMode === 'report'} onClick={() => onViewModeChange('report')}>
+            报告
+          </ViewButton>
         </div>
         <div className="flex w-full items-stretch gap-2 lg:max-w-2xl">
           <form
@@ -309,6 +312,9 @@ export function SearchBar({
           </ViewButton>
           <ViewButton active={viewMode === 'recent'} onClick={() => onViewModeChange('recent')} disabled={historyCount === 0}>
             最近
+          </ViewButton>
+          <ViewButton active={viewMode === 'report'} onClick={() => onViewModeChange('report')}>
+            报告
           </ViewButton>
         </div>
       </div>

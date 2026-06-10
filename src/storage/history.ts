@@ -1,4 +1,4 @@
-import type { BookmarkItem } from './types';
+import type { BookmarkItem } from '../shared/types';
 
 export interface BookmarkUsage {
   id: string;

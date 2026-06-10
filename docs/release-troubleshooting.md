@@ -1,4 +1,4 @@
-# Release Troubleshooting
+# 发布故障排查
 
 ## semantic-release 报 `tag already exists`
 
@@ -88,7 +88,7 @@ git log --oneline v1.1.1..origin/main
 
 如果没有提交，或者只有 `docs:`、`chore:` 这类默认不触发发布的提交，就不会产生新 tag。
 
-## release dry-run 提示 Node 版本过低
+## 发布 dry-run 提示 Node 版本过低
 
 典型错误：
 
@@ -96,15 +96,15 @@ git log --oneline v1.1.1..origin/main
 node version ^22.14.0 || >= 24.10.0 is required
 ```
 
-项目使用 semantic-release 25，要求 Node.js `>=22.14.0`。CI 会读取 `.nvmrc`，本地需要切换到同一版本后再运行：
+项目使用 semantic-release 25，要求 Node.js `^22.14.0 || >=24.10.0`。本地执行 release dry-run 时需要先切换到满足 semantic-release 要求的 Node 版本：
 
 ```bash
-nvm install
-nvm use
+nvm install 22.14.0
+nvm use 22.14.0
 pnpm release:dry-run
 ```
 
-## release dry-run 提示没有 GitHub token
+## 发布 dry-run 提示没有 GitHub token
 
 典型错误：
 

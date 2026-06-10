@@ -5,7 +5,7 @@ import {
   pruneBookmarkHistory,
   recordBookmarkOpen,
 } from '../history';
-import type { BookmarkItem } from '../types';
+import type { BookmarkItem } from '../../shared/types';
 
 const bookmarks: BookmarkItem[] = [
   { id: '1', title: 'Alpha', url: 'https://alpha.com', folderPath: [], folderIdPath: [], dateAdded: 0 },

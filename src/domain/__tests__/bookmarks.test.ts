@@ -4,8 +4,9 @@ import {
   buildFolderTree,
   getBookmarksInFolder,
   filterBookmarks,
+  executeBookmarkBatchOperation,
 } from '../bookmarks';
-import type { BookmarkItem } from '../types';
+import type { BookmarkItem } from '../../shared/types';
 
 type Node = chrome.bookmarks.BookmarkTreeNode;
 
@@ -350,5 +351,89 @@ describe('filterBookmarks', () => {
     ];
 
     expect(filterBookmarks(items, 'site:github.com react').map((b) => b.id)).toEqual(['1']);
+  });
+
+  it('boosts frequent and recent bookmarks without changing filters', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'React Alpha',
+        url: 'https://alpha.example.com/react',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'React Beta',
+        url: 'https://beta.example.com/react',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+    const history = [
+      { id: '2', title: 'React Beta', url: 'https://beta.example.com/react', count: 10, lastOpened: 200 },
+      { id: '1', title: 'React Alpha', url: 'https://alpha.example.com/react', count: 1, lastOpened: 100 },
+    ];
+
+    expect(filterBookmarks(items, 'react', history).map((b) => b.id)).toEqual(['2', '1']);
+  });
+
+  it('keeps exact title matches ahead of heavily used weaker matches', () => {
+    const items: BookmarkItem[] = [
+      {
+        id: '1',
+        title: 'GitHub',
+        url: 'https://example.com',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+      {
+        id: '2',
+        title: 'Tools',
+        url: 'https://github.com/tools',
+        folderPath: [],
+        folderIdPath: [],
+        dateAdded: 0,
+      },
+    ];
+    const history = [
+      { id: '2', title: 'Tools', url: 'https://github.com/tools', count: 100, lastOpened: 300 },
+    ];
+
+    expect(filterBookmarks(items, 'github', history).map((b) => b.id)).toEqual(['1', '2']);
+  });
+});
+
+describe('executeBookmarkBatchOperation', () => {
+  const bookmarks: BookmarkItem[] = [
+    { id: '1', title: 'A', url: 'https://a.com', folderPath: [], folderIdPath: [], dateAdded: 0 },
+    { id: '2', title: 'B', url: 'https://b.com', folderPath: [], folderIdPath: [], dateAdded: 0 },
+    { id: '3', title: 'C', url: 'https://c.com', folderPath: [], folderIdPath: [], dateAdded: 0 },
+  ];
+
+  it('returns succeeded and failed items for partial failures', async () => {
+    const result = await executeBookmarkBatchOperation(bookmarks, async (bookmark) => {
+      if (bookmark.id === '2') {
+        throw new Error('move failed');
+      }
+    });
+
+    expect(result.succeeded.map((bookmark) => bookmark.id)).toEqual(['1', '3']);
+    expect(result.failed.map(({ bookmark }) => bookmark.id)).toEqual(['2']);
+    expect(result.failed[0].error.message).toBe('move failed');
+  });
+
+  it('continues after a failure', async () => {
+    const visited: string[] = [];
+
+    await executeBookmarkBatchOperation(bookmarks, async (bookmark) => {
+      visited.push(bookmark.id);
+      if (bookmark.id === '1') throw new Error('delete failed');
+    });
+
+    expect(visited).toEqual(['1', '2', '3']);
   });
 });

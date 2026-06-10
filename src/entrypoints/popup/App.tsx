@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { BookmarkItem } from '../components/types';
-import { flattenBookmarks, filterBookmarks } from '../components/bookmarks';
-import { getFaviconUrl, getDuckDuckGoFaviconUrl } from '../components/favicon';
-import { simplifyUrl, openUrl } from '../components/utils';
+import type { BookmarkItem } from '../../shared/types';
+import { flattenBookmarks, filterBookmarks } from '../../domain/bookmarks';
+import { getFaviconUrl, getDuckDuckGoFaviconUrl } from '../../shared/favicon';
+import { simplifyUrl, openUrl } from '../../shared/utils';
 
 export default function App() {
   const [allBookmarks, setAllBookmarks] = useState<BookmarkItem[]>([]);

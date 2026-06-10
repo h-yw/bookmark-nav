@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import type { BookmarkItem } from './types';
+import type { BookmarkItem } from '../shared/types';
 import { BookmarkCard, type BookmarkCardAction } from './BookmarkCard';
-import type { CardDensity } from './settings';
+import type { CardDensity } from '../storage/settings';
 
 interface BookmarkGridProps {
   bookmarks: BookmarkItem[];

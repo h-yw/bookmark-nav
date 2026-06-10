@@ -15,7 +15,7 @@
 
 1. **覆盖新标签页**
    - 用导航页替换浏览器默认新标签页
-   - 入口：`entrypoints/newtab/index.html`
+   - 入口：`src/entrypoints/newtab/index.html`
 
 2. **读取书签树**
    - 使用 `chrome.bookmarks.getTree()` 获取所有书签
@@ -90,30 +90,22 @@
 ### 文件结构
 
 ```
-entrypoints/
-├── newtab/
-│   ├── index.html         # 新标签页入口
-│   ├── main.tsx           # React 挂载
-│   ├── App.tsx            # 主组件
-│   └── style.css          # Tailwind 导入 + 骨架屏动画
-├── popup/
-│   ├── index.html         # 弹窗入口
-│   ├── main.tsx
-│   ├── App.tsx
-│   └── style.css
-└── components/
-    ├── types.ts           # BookmarkItem, FolderNode, ViewMode 类型
-    ├── bookmarks.ts       # 书签树解析、过滤与相关性排序工具函数
-    ├── favicon.ts         # favicon URL 生成 + 缓存
-    ├── history.ts         # 书签打开历史（常用/最近）
-    ├── settings.ts        # 应用设置（localStorage 持久化）
-    ├── utils.ts           # simplifyUrl, openUrl 共享工具
-    ├── Sidebar.tsx        # 文件夹侧边栏
-    ├── BookmarkGrid.tsx   # 书签网格
-    ├── BookmarkCard.tsx   # 单个书签卡片
-    ├── BookmarkManageDialog.tsx # 编辑/删除书签弹窗
-    ├── SearchBar.tsx      # 搜索栏（书签/网页双模式）
-    └── SettingsDrawer.tsx # 设置面板
+src/
+├── entrypoints/
+│   ├── newtab/
+│   │   ├── index.html     # 新标签页入口
+│   │   ├── main.tsx       # React 挂载
+│   │   ├── App.tsx        # 主组件
+│   │   └── style.css      # Tailwind 导入 + 骨架屏动画
+│   └── popup/
+│       ├── index.html     # 弹窗入口
+│       ├── main.tsx
+│       ├── App.tsx
+│       └── style.css
+├── components/            # React UI 组件
+├── domain/                # 书签树解析、过滤、报告分析、失效链接检测
+├── storage/               # 应用设置、历史、导入导出、操作快照
+└── shared/                # BookmarkItem, FolderNode, ViewMode、favicon 和 URL 工具
 ```
 
 ### wxt.config.ts 配置

@@ -1,18 +1,21 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { BookmarkItem, FolderNode, ViewMode } from '../components/types';
+import type { BookmarkItem, FolderNode, ViewMode } from '../../shared/types';
 import {
   flattenBookmarks,
   buildFolderTree,
   getBookmarksInFolder,
   filterBookmarks,
+  executeBookmarkBatchOperation,
+  createBookmark,
   moveBookmark,
   removeBookmark,
   updateBookmark,
-} from '../components/bookmarks';
-import { Sidebar } from '../components/Sidebar';
-import { BookmarkGrid } from '../components/BookmarkGrid';
-import { SearchBar } from '../components/SearchBar';
-import { SettingsDrawer } from '../components/SettingsDrawer';
+} from '../../domain/bookmarks';
+import { Sidebar } from '../../components/Sidebar';
+import { BookmarkGrid } from '../../components/BookmarkGrid';
+import { BookmarkReport } from '../../components/BookmarkReport';
+import { SearchBar } from '../../components/SearchBar';
+import { SettingsDrawer } from '../../components/SettingsDrawer';
 import {
   ClearLocalDataDialog,
   ClearHistoryDialog,
@@ -20,21 +23,44 @@ import {
   DeleteBookmarksDialog,
   EditBookmarkDialog,
   MoveBookmarksDialog,
+  OperationSnapshotsDialog,
   ResetSettingsDialog,
-} from '../components/BookmarkManageDialog';
-import type { BookmarkCardAction } from '../components/BookmarkCard';
-import type { AppSettings, SearchEngineId } from '../components/settings';
-import { DEFAULT_SETTINGS, loadSettings, normalizeSettings, saveSettings } from '../components/settings';
+} from '../../components/BookmarkManageDialog';
+import { DuplicateBookmarksDialog } from '../../components/DuplicateBookmarksDialog';
+import { DeadLinkDetectionDialog } from '../../components/DeadLinkDetectionDialog';
+import type { DuplicateUrlGroup } from '../../domain/bookmarkAnalysis';
+import type { BookmarkCardAction } from '../../components/BookmarkCard';
+import type { AppSettings, SearchEngineId } from '../../storage/settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../storage/settings';
+import { createBookmarkNavExportData, normalizeBookmarkNavImportData } from '../../storage/localData';
+import { createBookmarkReport } from '../../domain/bookmarkAnalysis';
 import {
   getHistoryBookmarks,
   loadBookmarkHistory,
-  normalizeBookmarkHistory,
   pruneBookmarkHistory,
   recordBookmarkOpen,
   saveBookmarkHistory,
   type BookmarkUsage,
-} from '../components/history';
-import { openUrl } from '../components/utils';
+} from '../../storage/history';
+import {
+  clearOperationSnapshots,
+  createOperationSnapshot,
+  createOperationSnapshotRestorePlan,
+  loadOperationSnapshots,
+  removeOperationSnapshot,
+  prependOperationSnapshot,
+  saveOperationSnapshots,
+  type OperationSnapshot,
+} from '../../storage/operationSnapshots';
+import {
+  clearDeadLinkDetectionRecord,
+  createDeadLinkDetectionRecord,
+  loadDeadLinkDetectionRecord,
+  saveDeadLinkDetectionRecord,
+  type DeadLinkDetectionRecord,
+} from '../../storage/deadLinkRecords';
+import type { DeadLinkDetectionProgress, DeadLinkResult } from '../../domain/deadLinkDetection';
+import { openUrl } from '../../shared/utils';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -49,14 +75,6 @@ const SEARCH_ENGINES_BY_ID: Record<SearchEngineId, string> = {
   duckduckgo: 'DuckDuckGo',
   baidu: '百度',
 };
-
-interface BookmarkNavExportData {
-  app: 'bookmark-nav';
-  version: 1;
-  exportedAt: string;
-  settings: AppSettings;
-  history: BookmarkUsage[];
-}
 
 function getSelectedFolder(folders: FolderNode[], selectedPath: string[]): FolderNode | null {
   let currentFolders = folders;
@@ -75,6 +93,7 @@ function getPageTitle(searchQuery: string, viewMode: ViewMode, selectedFolder: F
   if (searchQuery) return '搜索结果';
   if (viewMode === 'frequent') return '常用书签';
   if (viewMode === 'recent') return '最近打开';
+  if (viewMode === 'report') return '整理报告';
   return selectedFolder?.title ?? '全部书签';
 }
 
@@ -98,6 +117,9 @@ function getPageSubtitle({
   if (viewMode === 'recent') {
     return count > 0 ? `按最近打开时间排序，共 ${count} 个书签` : '打开书签后会自动记录最近列表';
   }
+  if (viewMode === 'report') {
+    return '本地只读分析，不会修改浏览器书签';
+  }
   if (selectedPath.length === 0) return '查看所有已保存的书签';
   return includeNested
     ? `当前文件夹及子文件夹包含 ${count} 个书签`
@@ -118,10 +140,17 @@ export default function App() {
   const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
   const [movingBookmarks, setMovingBookmarks] = useState<BookmarkItem[]>([]);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [clearingLocalData, setClearingLocalData] = useState(false);
   const [resettingSettings, setResettingSettings] = useState(false);
+  const [operationSnapshots, setOperationSnapshots] = useState(() => loadOperationSnapshots());
+  const [operationSnapshotsOpen, setOperationSnapshotsOpen] = useState(false);
+  const [restoringSnapshotId, setRestoringSnapshotId] = useState<string | null>(null);
+  const [duplicateGroup, setDuplicateGroup] = useState<DuplicateUrlGroup | null>(null);
+  const [deadLinkDetectionOpen, setDeadLinkDetectionOpen] = useState(false);
+  const [deadLinkRecord, setDeadLinkRecord] = useState<DeadLinkDetectionRecord | null>(() => loadDeadLinkDetectionRecord());
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -212,13 +241,7 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data: BookmarkNavExportData = {
-      app: 'bookmark-nav',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      settings,
-      history,
-    };
+    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots());
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -234,19 +257,18 @@ export default function App() {
     setNotice(null);
     try {
       const parsed: unknown = JSON.parse(await file.text());
-      const input = parsed && typeof parsed === 'object'
-        ? parsed as { settings?: unknown; history?: unknown }
-        : {};
-      const nextSettings = normalizeSettings(input.settings);
-      const nextHistory = pruneBookmarkHistory(
-        allBookmarks,
-        normalizeBookmarkHistory(input.history)
-      );
+      const {
+        settings: nextSettings,
+        history: nextHistory,
+        operationSnapshots,
+      } = normalizeBookmarkNavImportData(parsed, allBookmarks);
 
       setSettings(nextSettings);
       saveSettings(nextSettings);
       setHistory(nextHistory);
       saveBookmarkHistory(nextHistory);
+      saveOperationSnapshots(operationSnapshots);
+      setOperationSnapshots(operationSnapshots);
       setNotice('数据已导入');
     } catch {
       setActionError('导入失败，请选择有效的 JSON 文件');
@@ -258,6 +280,10 @@ export default function App() {
     saveSettings(DEFAULT_SETTINGS);
     setHistory([]);
     saveBookmarkHistory([]);
+    clearOperationSnapshots();
+    clearDeadLinkDetectionRecord();
+    setOperationSnapshots([]);
+    setDeadLinkRecord(null);
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -282,7 +308,7 @@ export default function App() {
   };
 
   const handleOpenSelectedBookmark = (query: string, index: number) => {
-    const matches = query ? filterBookmarks(allBookmarks, query) : displayedBookmarks;
+    const matches = query ? filterBookmarks(allBookmarks, query, history) : displayedBookmarks;
     const selected = matches[Math.min(index, matches.length - 1)];
     if (!selected) return false;
     handleOpenBookmark(selected);
@@ -369,18 +395,32 @@ export default function App() {
   };
 
   const handleDeleteSelectedBookmarks = async () => {
-    if (selectedBookmarks.length === 0) return;
+    const targetBookmarks = batchDeletingBookmarks.length > 0 ? batchDeletingBookmarks : selectedBookmarks;
+    if (targetBookmarks.length === 0) return;
     setActionError(null);
     setActionPending(true);
     try {
-      await Promise.all(selectedBookmarks.map((bookmark) => removeBookmark(bookmark.id)));
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-delete',
+        bookmarks: targetBookmarks,
+      })));
+      const result = await executeBookmarkBatchOperation(
+        targetBookmarks,
+        (bookmark) => removeBookmark(bookmark.id)
+      );
       setBatchDeleting(false);
-      setSelectedBookmarkIds([]);
-      setNotice(`已删除 ${selectedBookmarks.length} 个书签`);
-      loadBookmarks(false);
+      setBatchDeletingBookmarks([]);
+      const succeededIds = new Set(result.succeeded.map((bookmark) => bookmark.id));
+      setSelectedBookmarkIds((ids) => ids.filter((id) => !succeededIds.has(id)));
+      if (result.failed.length > 0) {
+        setActionError(`已删除 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已删除 ${result.succeeded.length} 个书签`);
+      }
     } catch {
       setActionError('批量删除失败');
     } finally {
+      loadBookmarks(false);
       setActionPending(false);
     }
   };
@@ -390,28 +430,87 @@ export default function App() {
     setActionError(null);
     setActionPending(true);
     try {
-      await Promise.all(movingBookmarks.map((bookmark) => moveBookmark(bookmark.id, folderId)));
-      const movedIds = new Set(movingBookmarks.map((bookmark) => bookmark.id));
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-move',
+        bookmarks: movingBookmarks,
+        targetFolderId: folderId,
+      })));
+      const result = await executeBookmarkBatchOperation(
+        movingBookmarks,
+        (bookmark) => moveBookmark(bookmark.id, folderId)
+      );
+      const movedIds = new Set(result.succeeded.map((bookmark) => bookmark.id));
       setSelectedBookmarkIds((ids) => ids.filter((id) => !movedIds.has(id)));
       setMovingBookmarks([]);
-      setNotice(`已移动 ${movingBookmarks.length} 个书签`);
-      loadBookmarks(false);
+      if (result.failed.length > 0) {
+        setActionError(`已移动 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已移动 ${result.succeeded.length} 个书签`);
+      }
     } catch {
       setActionError('移动书签失败');
     } finally {
+      loadBookmarks(false);
       setActionPending(false);
     }
   };
 
+  const handleRemoveDuplicates = async (keepBookmark: BookmarkItem, removeBookmarks: BookmarkItem[]) => {
+    if (removeBookmarks.length === 0) return;
+    setActionError(null);
+    setActionPending(true);
+    try {
+      setOperationSnapshots(prependOperationSnapshot(createOperationSnapshot({
+        type: 'batch-delete',
+        bookmarks: removeBookmarks,
+      })));
+      const result = await executeBookmarkBatchOperation(
+        removeBookmarks,
+        (bookmark) => removeBookmark(bookmark.id)
+      );
+      setDuplicateGroup(null);
+      if (result.failed.length > 0) {
+        setActionError(`已删除 ${result.succeeded.length} 个重复项，${result.failed.length} 个失败`);
+      } else {
+        setNotice(`已删除 ${result.succeeded.length} 个重复项，保留了 "${keepBookmark.title}"`);
+      }
+    } catch {
+      setActionError('删除重复书签失败');
+    } finally {
+      loadBookmarks(false);
+      setActionPending(false);
+    }
+  };
+
+  const handleDeleteDeadLinks = async (deadBookmarks: BookmarkItem[]) => {
+    if (deadBookmarks.length === 0) return;
+    setActionError(null);
+    setDeadLinkDetectionOpen(false);
+    setBatchDeletingBookmarks(deadBookmarks);
+    setBatchDeleting(true);
+  };
+
+  const handleDeadLinkDetectionComplete = (
+    progress: DeadLinkDetectionProgress,
+    results: DeadLinkResult[]
+  ) => {
+    const record = createDeadLinkDetectionRecord(progress, results);
+    setDeadLinkRecord(record);
+    saveDeadLinkDetectionRecord(record);
+  };
+
   const displayedBookmarks = useMemo(() => {
     if (searchQuery) {
-      return filterBookmarks(allBookmarks, searchQuery);
+      return filterBookmarks(allBookmarks, searchQuery, history);
     }
     if (viewMode === 'frequent') {
       return getHistoryBookmarks(allBookmarks, history, 'frequent');
     }
     if (viewMode === 'recent') {
       return getHistoryBookmarks(allBookmarks, history, 'recent');
+    }
+    if (viewMode === 'report') {
+      return [];
     }
     return getBookmarksInFolder(
       allBookmarks,
@@ -436,6 +535,19 @@ export default function App() {
   }, [allBookmarks]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
+  const report = useMemo(
+    () => createBookmarkReport(allBookmarks, folders, history),
+    [allBookmarks, folders, history]
+  );
+  const validFolderIds = useMemo(() => new Set(getFolderIds(folders)), [folders]);
+  const fallbackFolderId = folders[0]?.id;
+  const operationSnapshotRestorePlans = useMemo(() => {
+    const plans = new Map<string, ReturnType<typeof createOperationSnapshotRestorePlan>>();
+    for (const snapshot of operationSnapshots) {
+      plans.set(snapshot.id, createOperationSnapshotRestorePlan(snapshot, allBookmarks, validFolderIds, fallbackFolderId));
+    }
+    return plans;
+  }, [allBookmarks, fallbackFolderId, operationSnapshots, validFolderIds]);
   const selectedBookmarks = useMemo(
     () => selectedBookmarkIds
       .map((id) => allBookmarks.find((bookmark) => bookmark.id === id))
@@ -450,6 +562,43 @@ export default function App() {
     count: displayedBookmarks.length,
     includeNested: settings.bookmarkScope === 'nested',
   });
+
+  const handleRestoreOperationSnapshot = async (snapshot: OperationSnapshot) => {
+    const plan = operationSnapshotRestorePlans.get(snapshot.id) ?? [];
+    const restorableItems = plan.filter((item) => item.canRestore);
+    if (restorableItems.length === 0) return;
+
+    setActionError(null);
+    setNotice(null);
+    setRestoringSnapshotId(snapshot.id);
+
+    const result = await executeBookmarkBatchOperation(
+      restorableItems.map((item) => item.bookmark),
+      async (bookmark) => {
+        const item = restorableItems.find((planItem) => planItem.bookmark.id === bookmark.id);
+        if (!item?.parentId) throw new Error('Missing restore target folder');
+        if (item.action === 'create') {
+          await createBookmark({
+            title: item.bookmark.title,
+            url: item.bookmark.url,
+            parentId: item.parentId,
+          });
+          return;
+        }
+        if (!item.currentBookmark) throw new Error('Missing current bookmark');
+        await moveBookmark(item.currentBookmark.id, item.parentId);
+      }
+    );
+
+    if (result.failed.length > 0) {
+      setActionError(`已恢复 ${result.succeeded.length} 个，${result.failed.length} 个失败`);
+    } else {
+      setNotice(`已恢复 ${result.succeeded.length} 个书签`);
+      setOperationSnapshots(removeOperationSnapshot(snapshot.id));
+    }
+    setRestoringSnapshotId(null);
+    loadBookmarks(false);
+  };
 
   if (loading) {
     return (
@@ -527,6 +676,7 @@ export default function App() {
           onViewModeChange={(mode) => {
             setViewMode(mode);
             setSearchQuery('');
+            setSelectedBookmarkIds([]);
           }}
           historyCount={history.length}
           defaultMode={settings.defaultSearchMode}
@@ -536,20 +686,36 @@ export default function App() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
-        <BookmarkGrid
-          bookmarks={displayedBookmarks}
-          isSearching={!!searchQuery}
-          searchQuery={searchQuery}
-          searchEngineLabel={SEARCH_ENGINES_BY_ID[settings.searchEngine]}
-          noResultWebSearch={settings.noResultWebSearch}
-          density={settings.cardDensity}
-          selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
-          selectedBookmarkIds={selectedBookmarkIds}
-          onOpenBookmark={handleOpenBookmark}
-          onBookmarkAction={handleBookmarkAction}
-          onToggleBookmarkSelection={handleToggleBookmarkSelection}
-          onWebSearch={handleWebSearch}
-        />
+        {viewMode === 'report' && !searchQuery ? (
+          <BookmarkReport
+            report={report}
+            history={history}
+            allBookmarks={allBookmarks}
+            deadLinkRecord={deadLinkRecord}
+            onProcessDuplicate={setDuplicateGroup}
+            onNavigateToFolder={(folderIdPath) => {
+              setSelectedPath(folderIdPath);
+              setViewMode('folder');
+              setSearchQuery('');
+            }}
+            onDetectDeadLinks={() => setDeadLinkDetectionOpen(true)}
+          />
+        ) : (
+          <BookmarkGrid
+            bookmarks={displayedBookmarks}
+            isSearching={!!searchQuery}
+            searchQuery={searchQuery}
+            searchEngineLabel={SEARCH_ENGINES_BY_ID[settings.searchEngine]}
+            noResultWebSearch={settings.noResultWebSearch}
+            density={settings.cardDensity}
+            selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
+            selectedBookmarkIds={selectedBookmarkIds}
+            onOpenBookmark={handleOpenBookmark}
+            onBookmarkAction={handleBookmarkAction}
+            onToggleBookmarkSelection={handleToggleBookmarkSelection}
+            onWebSearch={handleWebSearch}
+          />
+        )}
       </main>
       {selectedBookmarks.length > 0 && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
@@ -575,6 +741,7 @@ export default function App() {
             type="button"
             onClick={() => {
               setActionError(null);
+              setBatchDeletingBookmarks(selectedBookmarks);
               setBatchDeleting(true);
             }}
             className="rounded-lg border border-red-100 px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50"
@@ -623,11 +790,12 @@ export default function App() {
         onConfirm={handleDeleteBookmark}
       />
       <DeleteBookmarksDialog
-        bookmarks={batchDeleting ? selectedBookmarks : []}
+        bookmarks={batchDeleting ? batchDeletingBookmarks : []}
         error={batchDeleting ? actionError : null}
         deleting={actionPending}
         onClose={() => {
           setBatchDeleting(false);
+          setBatchDeletingBookmarks([]);
           setActionError(null);
         }}
         onConfirm={handleDeleteSelectedBookmarks}
@@ -663,14 +831,43 @@ export default function App() {
         open={settingsOpen}
         settings={settings}
         historyCount={history.length}
+        operationSnapshotCount={operationSnapshots.length}
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
         onClearHistory={() => setClearingHistory(true)}
+        onOpenOperationSnapshots={() => setOperationSnapshotsOpen(true)}
         onExportData={handleExportData}
         onImportData={handleImportData}
         onClearLocalData={() => setClearingLocalData(true)}
         onResetSettings={() => setResettingSettings(true)}
       />
+      <OperationSnapshotsDialog
+        open={operationSnapshotsOpen}
+        snapshots={operationSnapshots}
+        plansBySnapshotId={operationSnapshotRestorePlans}
+        restoringSnapshotId={restoringSnapshotId}
+        onClose={() => setOperationSnapshotsOpen(false)}
+        onRestore={handleRestoreOperationSnapshot}
+        onRemove={(snapshotId) => setOperationSnapshots(removeOperationSnapshot(snapshotId))}
+      />
+      <DuplicateBookmarksDialog
+        group={duplicateGroup}
+        history={history}
+        onClose={() => setDuplicateGroup(null)}
+        onConfirm={handleRemoveDuplicates}
+      />
+      {deadLinkDetectionOpen && (
+        <DeadLinkDetectionDialog
+          bookmarks={allBookmarks}
+          onClose={() => setDeadLinkDetectionOpen(false)}
+          onComplete={handleDeadLinkDetectionComplete}
+          onDeleteDeadLinks={handleDeleteDeadLinks}
+        />
+      )}
     </div>
   );
+}
+
+function getFolderIds(folders: FolderNode[]): string[] {
+  return folders.flatMap((folder) => [folder.id, ...getFolderIds(folder.children)]);
 }

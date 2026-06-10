@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import type { AppSettings, CardDensity, SearchEngineId, SearchMode } from './settings';
-import { SEARCH_ENGINES } from './settings';
+import type { AppSettings, CardDensity, SearchEngineId, SearchMode } from '../storage/settings';
+import { SEARCH_ENGINES } from '../storage/settings';
 
 interface SettingsDrawerProps {
   open: boolean;
   settings: AppSettings;
   historyCount: number;
+  operationSnapshotCount: number;
   onClose: () => void;
   onChange: (settings: AppSettings) => void;
   onClearHistory: () => void;
+  onOpenOperationSnapshots: () => void;
   onExportData: () => void;
   onImportData: (file: File) => void;
   onClearLocalData: () => void;
@@ -68,9 +70,11 @@ export function SettingsDrawer({
   open,
   settings,
   historyCount,
+  operationSnapshotCount,
   onClose,
   onChange,
   onClearHistory,
+  onOpenOperationSnapshots,
   onExportData,
   onImportData,
   onClearLocalData,
@@ -211,7 +215,21 @@ export function SettingsDrawer({
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-3">
               <div className="mb-3">
                 <div className="text-sm text-stone-700">本地数据</div>
-                <div className="mt-0.5 text-xs leading-5 text-stone-400">导出或恢复设置和常用/最近记录，不包含浏览器书签。</div>
+                <div className="mt-0.5 text-xs leading-5 text-stone-400">导出或恢复设置、常用/最近记录和操作快照，不包含浏览器书签树。</div>
+              </div>
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
+                <div>
+                  <div className="text-sm text-stone-700">操作快照</div>
+                  <div className="mt-0.5 text-xs text-stone-400">已保存 {operationSnapshotCount} 条批量操作快照</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={operationSnapshotCount === 0}
+                  onClick={onOpenOperationSnapshots}
+                  className="shrink-0 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  查看
+                </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button

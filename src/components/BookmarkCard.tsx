@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BookmarkItem } from './types';
-import { getFaviconUrl, getDuckDuckGoFaviconUrl } from './favicon';
-import type { CardDensity } from './settings';
-import { simplifyUrl, openUrl } from './utils';
+import type { BookmarkItem } from '../shared/types';
+import { getFaviconUrl, getDuckDuckGoFaviconUrl } from '../shared/favicon';
+import type { CardDensity } from '../storage/settings';
+import { simplifyUrl, openUrl } from '../shared/utils';
 
 export type BookmarkCardAction = 'copy' | 'edit' | 'move' | 'delete';
 

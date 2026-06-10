@@ -14,4 +14,4 @@ export interface FolderNode {
   bookmarkCount: number;
 }
 
-export type ViewMode = 'folder' | 'frequent' | 'recent';
+export type ViewMode = 'folder' | 'frequent' | 'recent' | 'report';
