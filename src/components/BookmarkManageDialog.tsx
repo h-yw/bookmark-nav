@@ -8,6 +8,7 @@ import {
   type OperationSnapshotRestorePlan,
 } from '../storage/operationSnapshots';
 import { normalizeTagList } from '../storage/tags';
+import type { BookmarkTagSummary } from '../domain/bookmarkTags';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
@@ -24,6 +25,24 @@ interface EditBookmarkTagsDialogProps {
   saving?: boolean;
   onClose: () => void;
   onSave: (tags: string[]) => void;
+}
+
+interface BatchAddTagsDialogProps {
+  open: boolean;
+  count: number;
+  existingTags: string[];
+  saving?: boolean;
+  onClose: () => void;
+  onSave: (tags: string[]) => void;
+}
+
+interface ManageTagsDialogProps {
+  open: boolean;
+  tags: BookmarkTagSummary[];
+  saving?: boolean;
+  onClose: () => void;
+  onRename: (oldTag: string, newTag: string) => void;
+  onDelete: (tag: string) => void;
 }
 
 interface DeleteBookmarkDialogProps {
@@ -338,6 +357,232 @@ export function EditBookmarkTagsDialog({
           >
             {saving ? '保存中...' : '保存'}
           </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function BatchAddTagsDialog({
+  open,
+  count,
+  existingTags,
+  saving = false,
+  onClose,
+  onSave,
+}: BatchAddTagsDialogProps) {
+  const [nextTags, setNextTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setNextTags([]);
+    setTagInput('');
+  }, [open]);
+
+  if (!open) return null;
+
+  const addTag = (value = tagInput) => {
+    setNextTags((currentTags) => normalizeTagList([...currentTags, value]));
+    setTagInput('');
+  };
+  const availableTags = existingTags.filter((tag) => !nextTags.includes(tag));
+
+  return (
+    <DialogShell title="批量添加标签" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3 text-sm leading-6 text-stone-600">
+          将为 {count} 个已选书签追加标签。已有标签不会重复添加。
+        </div>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addTag();
+          }}
+        >
+          <label className="block">
+            <span className="mb-1.5 block text-sm text-stone-700">添加标签</span>
+            <div className="flex gap-2">
+              <input
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-stone-400"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={!tagInput.trim()}
+                className="rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                添加
+              </button>
+            </div>
+          </label>
+          <div className="min-h-10 rounded-lg border border-stone-200 bg-white px-3 py-2">
+            {nextTags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {nextTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setNextTags((currentTags) => currentTags.filter((item) => item !== tag))}
+                    className="rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-100"
+                  >
+                    {tag} ×
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-stone-400">请选择或输入标签</div>
+            )}
+          </div>
+          {availableTags.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-stone-400">已有标签</div>
+              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                {availableTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => addTag(tag)}
+                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:bg-stone-50 hover:text-stone-800"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={saving || nextTags.length === 0}
+            onClick={() => onSave(nextTags)}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+export function ManageTagsDialog({
+  open,
+  tags,
+  saving = false,
+  onClose,
+  onRename,
+  onDelete,
+}: ManageTagsDialogProps) {
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [nextName, setNextName] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setEditingTag(null);
+    setNextName('');
+  }, [open]);
+
+  if (!open) return null;
+
+  const startRename = (tag: string) => {
+    setEditingTag(tag);
+    setNextName(tag);
+  };
+  const submitRename = () => {
+    if (!editingTag) return;
+    const [normalizedName] = normalizeTagList([nextName]);
+    if (!normalizedName || normalizedName === editingTag) {
+      setEditingTag(null);
+      setNextName('');
+      return;
+    }
+    onRename(editingTag, normalizedName);
+    setEditingTag(null);
+    setNextName('');
+  };
+
+  return (
+    <DialogShell title="管理标签" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm leading-6 text-stone-500">
+          重命名或删除只会修改扩展本地标签，不会修改浏览器书签。
+        </p>
+        <div className="max-h-96 space-y-2 overflow-y-auto">
+          {tags.length === 0 ? (
+            <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-400">
+              暂无标签
+            </div>
+          ) : tags.map(({ tag, count }) => (
+            <div key={tag} className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+              {editingTag === tag ? (
+                <div className="flex gap-2">
+                  <input
+                    value={nextName}
+                    onChange={(event) => setNextName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') submitRename();
+                    }}
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-stone-400"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={submitRename}
+                    className="rounded-lg bg-stone-900 px-3 text-xs text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    保存
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setEditingTag(null)}
+                    className="rounded-lg border border-stone-200 bg-white px-3 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-stone-800">{tag}</div>
+                    <div className="mt-0.5 text-xs text-stone-400">{count} 个书签</div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => startRename(tag)}
+                      className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                    >
+                      重命名
+                    </button>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => onDelete(tag)}
+                      className="rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </DialogShell>

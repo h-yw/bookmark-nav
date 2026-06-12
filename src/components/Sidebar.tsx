@@ -11,6 +11,7 @@ interface SidebarProps {
   onClose: () => void;
   onSelect: (path: string[]) => void;
   onSelectTag?: (tag: string | null) => void;
+  onManageTags?: () => void;
 }
 
 export function Sidebar({
@@ -22,6 +23,7 @@ export function Sidebar({
   onClose,
   onSelect,
   onSelectTag,
+  onManageTags,
 }: SidebarProps) {
   const panel = (
     <aside aria-label="书签文件夹" className="flex h-full w-72 shrink-0 flex-col bg-[#FAFAF8] border-r border-stone-200">
@@ -59,7 +61,18 @@ export function Sidebar({
       </div>
       {tags.length > 0 && (
         <div className="border-t border-stone-200 px-3 py-3">
-          <div className="mb-2 px-1 text-xs text-stone-400">标签</div>
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <div className="text-xs text-stone-400">标签</div>
+            {onManageTags && (
+              <button
+                type="button"
+                onClick={onManageTags}
+                className="rounded-md px-1.5 py-1 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+              >
+                管理
+              </button>
+            )}
+          </div>
           <div className="max-h-32 space-y-1 overflow-y-auto">
             {tags.map(({ tag, count }) => (
               <button

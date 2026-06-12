@@ -2,18 +2,23 @@
 
 ## 待办
 
-- [x] 撤销书签卡片上的标签角标和 hover 浮层。
-- [x] 保留标签编辑入口、侧边栏标签筛选和本地标签数据能力。
-- [x] 确认卡片恢复为标题、URL、搜索结果文件夹路径的简洁结构。
-- [x] 运行类型检查、lint、构建和 manifest 抽查。
+- [x] 审视现有标签存储、标签编辑弹窗、侧边栏标签区和批量选择浮层。
+- [x] 增加批量追加标签能力，只追加不批量移除。
+- [x] 增加标签管理入口和弹窗，支持重命名、删除标签。
+- [x] 补充标签批量操作和标签管理单元测试。
+- [x] 更新文档和计划状态。
+- [x] 使用 `nvm use v22` 运行验证。
 - [x] 记录结果。
 
 ## 结果
 
-- 已移除书签卡片上的标签角标和 hover 浮层。
-- 已移除 `BookmarkGrid` 到 `BookmarkCard` 的标签展示传参。
-- 标签编辑入口、侧边栏标签筛选、本地标签存储、导入/导出能力保持不变。
-- 卡片恢复为标题、URL，以及搜索结果中的文件夹路径展示，不再因标签产生额外视觉元素。
-- 验证通过：`source ~/.nvm/nvm.sh && nvm use v22 && pnpm compile && pnpm lint && pnpm build && pnpm check:manifest:chrome`。
+- 已新增批量追加标签能力，底部批量选择浮层提供“标签”入口。
+- 批量标签弹窗支持选择已有标签和输入新标签；只追加，不做批量移除。
+- 侧边栏标签区新增“管理”入口。
+- 管理标签弹窗支持重命名和删除标签；重命名为已有标签时会合并去重，删除只移除本地标签关联。
+- 已补充标签批量追加、重命名合并、删除清理等单元测试。
+- 已更新 `docs/plan.md` 标签系统状态说明。
+- 验证通过：`source ~/.nvm/nvm.sh && nvm use v22 && pnpm test`，12 个测试文件、94 个测试通过。
+- 验证通过：`source ~/.nvm/nvm.sh && nvm use v22 && pnpm verify`。
 - 验证通过：`git diff --check`。
 - manifest 抽查通过：`.output/chrome-mv3/manifest.json` 的 `permissions` 只有 `bookmarks`，没有 `content_scripts`。

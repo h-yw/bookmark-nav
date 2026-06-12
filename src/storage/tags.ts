@@ -76,3 +76,47 @@ export function setBookmarkTags(tags: BookmarkTags, bookmarkId: string, nextTags
   next[bookmarkId] = normalizedTags;
   return next;
 }
+
+export function addTagsToBookmarks(tags: BookmarkTags, bookmarkIds: string[], tagsToAdd: string[]): BookmarkTags {
+  const normalizedTagsToAdd = normalizeTagList(tagsToAdd);
+  if (bookmarkIds.length === 0 || normalizedTagsToAdd.length === 0) return normalizeBookmarkTags(tags);
+
+  let next = normalizeBookmarkTags(tags);
+  for (const bookmarkId of bookmarkIds) {
+    next = setBookmarkTags(next, bookmarkId, [
+      ...(next[bookmarkId] ?? []),
+      ...normalizedTagsToAdd,
+    ]);
+  }
+  return next;
+}
+
+export function renameBookmarkTag(tags: BookmarkTags, oldTag: string, newTag: string): BookmarkTags {
+  const [normalizedOldTag] = normalizeTagList([oldTag]);
+  const [normalizedNewTag] = normalizeTagList([newTag]);
+  if (!normalizedOldTag || !normalizedNewTag) return normalizeBookmarkTags(tags);
+
+  const next: BookmarkTags = {};
+  for (const [bookmarkId, currentTags] of Object.entries(normalizeBookmarkTags(tags))) {
+    const renamedTags = currentTags.map((tag) => tag === normalizedOldTag ? normalizedNewTag : tag);
+    const normalizedTags = normalizeTagList(renamedTags);
+    if (normalizedTags.length > 0) {
+      next[bookmarkId] = normalizedTags;
+    }
+  }
+  return next;
+}
+
+export function deleteBookmarkTag(tags: BookmarkTags, tagToDelete: string): BookmarkTags {
+  const [normalizedTagToDelete] = normalizeTagList([tagToDelete]);
+  if (!normalizedTagToDelete) return normalizeBookmarkTags(tags);
+
+  const next: BookmarkTags = {};
+  for (const [bookmarkId, currentTags] of Object.entries(normalizeBookmarkTags(tags))) {
+    const remainingTags = currentTags.filter((tag) => tag !== normalizedTagToDelete);
+    if (remainingTags.length > 0) {
+      next[bookmarkId] = remainingTags;
+    }
+  }
+  return next;
+}

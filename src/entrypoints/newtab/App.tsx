@@ -17,12 +17,14 @@ import { BookmarkReport } from '../../components/BookmarkReport';
 import { SearchBar } from '../../components/SearchBar';
 import { SettingsDrawer } from '../../components/SettingsDrawer';
 import {
+  BatchAddTagsDialog,
   ClearLocalDataDialog,
   ClearHistoryDialog,
   DeleteBookmarkDialog,
   DeleteBookmarksDialog,
   EditBookmarkDialog,
   EditBookmarkTagsDialog,
+  ManageTagsDialog,
   MoveBookmarksDialog,
   OperationSnapshotsDialog,
   ResetSettingsDialog,
@@ -64,8 +66,11 @@ import type { DeadLinkDetectionProgress, DeadLinkResult } from '../../domain/dea
 import { openUrl } from '../../shared/utils';
 import { filterBookmarksByTag, getAllBookmarkTagSummaries } from '../../domain/bookmarkTags';
 import {
+  addTagsToBookmarks,
   clearBookmarkTags,
+  deleteBookmarkTag,
   loadBookmarkTags,
+  renameBookmarkTag,
   saveBookmarkTags,
   setBookmarkTags,
   type BookmarkTags,
@@ -157,6 +162,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
   const [taggingBookmark, setTaggingBookmark] = useState<BookmarkItem | null>(null);
+  const [batchTagging, setBatchTagging] = useState(false);
+  const [managingTags, setManagingTags] = useState(false);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
@@ -222,10 +229,10 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    if (!actionError || editingBookmark || taggingBookmark || deletingBookmark) return;
+    if (!actionError || editingBookmark || taggingBookmark || batchTagging || managingTags || deletingBookmark) return;
     const timer = window.setTimeout(() => setActionError(null), 2400);
     return () => window.clearTimeout(timer);
-  }, [actionError, deletingBookmark, editingBookmark, taggingBookmark]);
+  }, [actionError, batchTagging, deletingBookmark, editingBookmark, managingTags, taggingBookmark]);
 
   useEffect(() => {
     const refreshBookmarks = () => loadBookmarks(false);
@@ -394,6 +401,32 @@ export default function App() {
     saveBookmarkTags(nextTags);
     setTaggingBookmark(null);
     setNotice(tags.length > 0 ? '标签已保存' : '标签已清空');
+  };
+
+  const handleBatchAddTags = (tags: string[]) => {
+    if (selectedBookmarks.length === 0) return;
+    const nextTags = addTagsToBookmarks(bookmarkTags, selectedBookmarks.map((bookmark) => bookmark.id), tags);
+    setBookmarkTagsState(nextTags);
+    saveBookmarkTags(nextTags);
+    setBatchTagging(false);
+    setSelectedBookmarkIds([]);
+    setNotice(`已为 ${selectedBookmarks.length} 个书签添加标签`);
+  };
+
+  const handleRenameTag = (oldTag: string, newTag: string) => {
+    const nextTags = renameBookmarkTag(bookmarkTags, oldTag, newTag);
+    setBookmarkTagsState(nextTags);
+    saveBookmarkTags(nextTags);
+    setSelectedTag((currentTag) => currentTag === oldTag ? newTag : currentTag);
+    setNotice('标签已重命名');
+  };
+
+  const handleDeleteTag = (tag: string) => {
+    const nextTags = deleteBookmarkTag(bookmarkTags, tag);
+    setBookmarkTagsState(nextTags);
+    saveBookmarkTags(nextTags);
+    setSelectedTag((currentTag) => currentTag === tag ? null : currentTag);
+    setNotice('标签已删除');
   };
 
   const handleDeleteBookmark = async () => {
@@ -732,6 +765,10 @@ export default function App() {
           setSelectedTag(tag);
           setSidebarOpen(false);
         }}
+        onManageTags={() => {
+          setManagingTags(true);
+          setSidebarOpen(false);
+        }}
       />
       <main className="flex-1 flex flex-col min-w-0">
         <SearchBar
@@ -790,7 +827,7 @@ export default function App() {
           />
         )}
       </main>
-      {selectedBookmarks.length > 0 && !editingBookmark && !taggingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
+      {selectedBookmarks.length > 0 && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
           <span className="px-1">已选择 {selectedBookmarks.length} 个</span>
           <button
@@ -799,6 +836,16 @@ export default function App() {
             className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs transition-colors hover:border-stone-300 hover:bg-stone-50"
           >
             复制链接
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionError(null);
+              setBatchTagging(true);
+            }}
+            className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            标签
           </button>
           <button
             type="button"
@@ -833,7 +880,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {(notice || actionError) && !editingBookmark && !taggingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
+      {(notice || actionError) && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
         <div className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2 text-sm shadow-lg ${
           actionError
             ? 'border-red-100 bg-red-50 text-red-600'
@@ -862,6 +909,28 @@ export default function App() {
           setActionError(null);
         }}
         onSave={handleSaveBookmarkTags}
+      />
+      <BatchAddTagsDialog
+        open={batchTagging}
+        count={selectedBookmarks.length}
+        existingTags={existingTags}
+        saving={actionPending}
+        onClose={() => {
+          setBatchTagging(false);
+          setActionError(null);
+        }}
+        onSave={handleBatchAddTags}
+      />
+      <ManageTagsDialog
+        open={managingTags}
+        tags={tagSummaries}
+        saving={actionPending}
+        onClose={() => {
+          setManagingTags(false);
+          setActionError(null);
+        }}
+        onRename={handleRenameTag}
+        onDelete={handleDeleteTag}
       />
       <DeleteBookmarkDialog
         bookmark={deletingBookmark}

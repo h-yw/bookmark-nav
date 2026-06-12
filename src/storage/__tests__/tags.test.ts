@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { BookmarkItem } from '../../shared/types';
 import {
+  addTagsToBookmarks,
   clearBookmarkTags,
+  deleteBookmarkTag,
   loadBookmarkTags,
   normalizeBookmarkTags,
   normalizeTagList,
+  renameBookmarkTag,
   saveBookmarkTags,
   setBookmarkTags,
   TAGS_STORAGE_KEY,
@@ -48,5 +51,49 @@ describe('bookmark tags', () => {
     expect(withTags).toEqual({ 1: ['dev', 'docs'] });
 
     expect(setBookmarkTags(withTags, '1', [''])).toEqual({});
+  });
+
+  it('adds tags to multiple bookmarks without duplicates', () => {
+    expect(addTagsToBookmarks(
+      { 1: ['dev'], 2: ['docs'] },
+      ['1', '2'],
+      [' dev ', '', 'work']
+    )).toEqual({
+      1: ['dev', 'work'],
+      2: ['docs', 'dev', 'work'],
+    });
+  });
+
+  it('ignores empty batch tag additions', () => {
+    expect(addTagsToBookmarks({ 1: ['dev'] }, ['1'], [''])).toEqual({ 1: ['dev'] });
+  });
+
+  it('renames a tag across bookmarks', () => {
+    expect(renameBookmarkTag({
+      1: ['dev'],
+      2: ['docs', 'dev'],
+    }, 'dev', 'work')).toEqual({
+      1: ['work'],
+      2: ['docs', 'work'],
+    });
+  });
+
+  it('merges duplicates when renaming to an existing tag', () => {
+    expect(renameBookmarkTag({
+      1: ['dev', 'work'],
+      2: ['dev'],
+    }, 'dev', 'work')).toEqual({
+      1: ['work'],
+      2: ['work'],
+    });
+  });
+
+  it('deletes a tag and removes empty bookmark entries', () => {
+    expect(deleteBookmarkTag({
+      1: ['dev'],
+      2: ['docs', 'dev'],
+    }, 'dev')).toEqual({
+      2: ['docs'],
+    });
   });
 });
