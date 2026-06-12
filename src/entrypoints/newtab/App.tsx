@@ -554,6 +554,12 @@ export default function App() {
       .filter((bookmark): bookmark is BookmarkItem => Boolean(bookmark)),
     [allBookmarks, selectedBookmarkIds]
   );
+  const latestRestorableOperationSnapshot = useMemo(
+    () => operationSnapshots.find((snapshot) =>
+      (operationSnapshotRestorePlans.get(snapshot.id) ?? []).some((item) => item.canRestore)
+    ) ?? null,
+    [operationSnapshotRestorePlans, operationSnapshots]
+  );
   const pageTitle = getPageTitle(searchQuery, viewMode, selectedFolder);
   const pageSubtitle = getPageSubtitle({
     searchQuery,
@@ -598,6 +604,11 @@ export default function App() {
     }
     setRestoringSnapshotId(null);
     loadBookmarks(false);
+  };
+
+  const handleRestoreLatestOperationSnapshot = () => {
+    if (!latestRestorableOperationSnapshot) return;
+    handleRestoreOperationSnapshot(latestRestorableOperationSnapshot);
   };
 
   if (loading) {
@@ -832,10 +843,13 @@ export default function App() {
         settings={settings}
         historyCount={history.length}
         operationSnapshotCount={operationSnapshots.length}
+        operationSnapshotCanRestoreLatest={Boolean(latestRestorableOperationSnapshot)}
+        restoringLatestOperationSnapshot={latestRestorableOperationSnapshot?.id === restoringSnapshotId}
         onClose={() => setSettingsOpen(false)}
         onChange={handleSettingsChange}
         onClearHistory={() => setClearingHistory(true)}
         onOpenOperationSnapshots={() => setOperationSnapshotsOpen(true)}
+        onRestoreLatestOperationSnapshot={handleRestoreLatestOperationSnapshot}
         onExportData={handleExportData}
         onImportData={handleImportData}
         onClearLocalData={() => setClearingLocalData(true)}

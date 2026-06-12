@@ -2,18 +2,20 @@
 
 ## 待办
 
-- [x] 核对 `.github/workflows/ci.yml` 和 `release.config.cjs` 中的真实构建产物。
-- [x] 修正 README 中关于 Release 下载包和加载目录的描述。
-- [x] 保持 README 面向用户，不恢复大段开发/CI 细节。
+- [x] 审视现有操作快照、恢复和批量操作逻辑。
+- [x] 设计阶段三第一步：操作历史与撤销的低风险实现。
+- [x] 实现操作历史入口，并复用现有快照恢复逻辑。
+- [x] 补充或调整测试。
 - [x] 使用 `nvm use v22` 运行验证。
 - [x] 记录结果。
 
 ## 结果
 
-- 已核对 `.github/workflows/ci.yml`：CI 临时构建产物是 `chrome-mv3` 和 `firefox-mv2` artifact，内容分别来自 `.output/chrome-mv3/` 和 `.output/firefox-mv2/`。
-- 已核对 `release.config.cjs`：GitHub Release 附件匹配 `.output/*chrome.zip`、`.output/*firefox.zip`、`.output/*sources.zip` 和 `.output/checksums.txt`。
-- 已通过 `pnpm zip` 和 `pnpm zip:firefox` 确认实际包名为 `bookmark-nav-<version>-chrome.zip`、`bookmark-nav-<version>-firefox.zip`、`bookmark-nav-<version>-sources.zip`，且 Chrome/Firefox zip 内部直接是扩展文件根目录，不包含 `.output/chrome-mv3/` 或 `.output/firefox-mv2/` 这一层。
-- 已修正 `README.md` 中 Chrome / Edge 和 Firefox 的 Release 安装说明，并区分 GitHub Release zip 与 GitHub Actions 临时 artifact。
+- 已将批量删除/移动的快照能力整理为“操作历史”，设置面板新增“撤销最近”入口。
+- 操作历史弹窗改为面向撤销的文案，继续复用现有恢复预览和备用文件夹逻辑。
+- 批量删除确认文案说明会写入操作历史；单个删除明确当前不进入操作历史。
+- README 和开发计划已同步操作历史边界，阶段三“操作历史与撤销”标记为部分完成。
+- 新增操作历史标签/说明的单元测试。
 - 验证通过：`source ~/.nvm/nvm.sh && nvm use v22 && pnpm verify`。
-- Manifest 抽查确认 Chrome permissions 只有 `bookmarks`，且不存在 `content_scripts`。
-- 空白检查通过：`git diff --check`。
+- 验证通过：`git diff --check`。
+- manifest 抽查通过：`.output/chrome-mv3/manifest.json` 的 `permissions` 只有 `bookmarks`，没有 `content_scripts`。

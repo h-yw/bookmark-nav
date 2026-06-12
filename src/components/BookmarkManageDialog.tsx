@@ -1,7 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { BookmarkItem, FolderNode } from '../shared/types';
-import type { OperationSnapshot, OperationSnapshotRestorePlan } from '../storage/operationSnapshots';
+import {
+  getOperationSnapshotLabel,
+  getOperationSnapshotUndoDescription,
+  type OperationSnapshot,
+  type OperationSnapshotRestorePlan,
+} from '../storage/operationSnapshots';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
@@ -219,7 +224,7 @@ export function DeleteBookmarkDialog({ bookmark, error, deleting = false, onClos
           <div className="line-clamp-2 text-sm font-medium text-stone-800">{bookmark.title}</div>
           <div className="mt-1 truncate text-xs text-stone-400">{bookmark.url}</div>
         </div>
-        <p className="text-sm leading-6 text-stone-500">删除后会从浏览器书签中移除，无法在本页面内撤销。</p>
+        <p className="text-sm leading-6 text-stone-500">删除后会从浏览器书签中移除，当前不会记录到操作历史。</p>
         {error && (
           <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
             {error}
@@ -271,7 +276,9 @@ export function DeleteBookmarksDialog({
             <div className="text-xs text-stone-400">另有 {bookmarks.length - 8} 个书签</div>
           )}
         </div>
-        <p className="text-sm leading-6 text-stone-500">将删除 {bookmarks.length} 个浏览器书签，无法在本页面内撤销。</p>
+        <p className="text-sm leading-6 text-stone-500">
+          将删除 {bookmarks.length} 个浏览器书签。删除前会记录到操作历史，可在设置中撤销可恢复项目。
+        </p>
         {error && (
           <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
             {error}
@@ -473,10 +480,10 @@ export function OperationSnapshotsDialog({
   if (!open) return null;
 
   return (
-    <DialogShell title="操作快照" onClose={onClose}>
+    <DialogShell title="操作历史" onClose={onClose}>
       <div className="space-y-4">
         <p className="text-sm leading-6 text-stone-500">
-          恢复前会先预览可恢复项目。恢复会重新创建已删除书签，或把仍存在的书签移回原文件夹。
+          撤销前会先预览可撤销项目。撤销会重新创建已删除书签，或把仍存在的书签移回原文件夹。
         </p>
         <div className="max-h-96 space-y-3 overflow-y-auto">
           {snapshots.map((snapshot) => {
@@ -489,11 +496,14 @@ export function OperationSnapshotsDialog({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-stone-800">
-                      {snapshot.type === 'batch-delete' ? '批量删除前快照' : '批量移动前快照'}
+                      {getOperationSnapshotLabel(snapshot.type)}
                     </div>
                     <div className="mt-0.5 text-xs text-stone-400">
-                      {new Date(snapshot.createdAt).toLocaleString()} · 可恢复 {restorableCount} 个
+                      {new Date(snapshot.createdAt).toLocaleString()} · 可撤销 {restorableCount} 个
                       {blockedCount > 0 ? `，跳过 ${blockedCount} 个` : ''}
+                    </div>
+                    <div className="mt-1 text-xs text-stone-500">
+                      {getOperationSnapshotUndoDescription(snapshot.type)}
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
@@ -503,7 +513,7 @@ export function OperationSnapshotsDialog({
                       onClick={() => onRestore(snapshot)}
                       className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {restoringSnapshotId === snapshot.id ? '恢复中...' : '恢复'}
+                      {restoringSnapshotId === snapshot.id ? '撤销中...' : '撤销'}
                     </button>
                     <button
                       type="button"

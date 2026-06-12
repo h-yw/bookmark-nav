@@ -3,6 +3,8 @@ import {
   clearOperationSnapshots,
   createOperationSnapshot,
   createOperationSnapshotRestorePlan,
+  getOperationSnapshotLabel,
+  getOperationSnapshotUndoDescription,
   loadOperationSnapshots,
   normalizeOperationSnapshots,
   prependOperationSnapshot,
@@ -39,6 +41,13 @@ describe('operation snapshots', () => {
     });
     expect(snapshot.bookmarks[0]).not.toBe(bookmark);
     expect(snapshot.bookmarks[0].folderPath).not.toBe(bookmark.folderPath);
+  });
+
+  it('formats operation history labels', () => {
+    expect(getOperationSnapshotLabel('batch-delete')).toBe('批量删除');
+    expect(getOperationSnapshotLabel('batch-move')).toBe('批量移动');
+    expect(getOperationSnapshotUndoDescription('batch-delete')).toBe('将重新创建已删除的书签');
+    expect(getOperationSnapshotUndoDescription('batch-move')).toBe('将把仍存在的书签移回原文件夹');
   });
 
   it('normalizes valid snapshots and removes invalid entries', () => {

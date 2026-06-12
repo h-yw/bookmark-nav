@@ -114,6 +114,16 @@ export function clearOperationSnapshots(): void {
   }
 }
 
+export function getOperationSnapshotLabel(type: OperationSnapshotType): string {
+  return type === 'batch-delete' ? '批量删除' : '批量移动';
+}
+
+export function getOperationSnapshotUndoDescription(type: OperationSnapshotType): string {
+  return type === 'batch-delete'
+    ? '将重新创建已删除的书签'
+    : '将把仍存在的书签移回原文件夹';
+}
+
 export function createOperationSnapshotRestorePlan(
   snapshot: OperationSnapshot,
   currentBookmarks: BookmarkItem[],
