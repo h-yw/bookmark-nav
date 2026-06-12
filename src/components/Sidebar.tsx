@@ -99,9 +99,13 @@ export function Sidebar({
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-transparent px-3 py-1.5 text-xs text-stone-400">
-            暂无工作区
-          </div>
+          <button
+            type="button"
+            onClick={onManageWorkspaces}
+            className="w-full rounded-lg border border-dashed border-stone-200 px-3 py-2 text-left text-xs leading-5 text-stone-400 transition-colors hover:border-stone-300 hover:bg-stone-50 hover:text-stone-700"
+          >
+            创建工作区
+          </button>
         )}
       </div>
       {tags.length > 0 && (

@@ -49,6 +49,7 @@ interface ManageTagsDialogProps {
 interface ManageWorkspacesDialogProps {
   open: boolean;
   workspaces: BookmarkWorkspace[];
+  initialWorkspace?: BookmarkWorkspaceInput | null;
   folders: FolderNode[];
   tags: string[];
   saving?: boolean;
@@ -605,6 +606,7 @@ export function ManageTagsDialog({
 export function ManageWorkspacesDialog({
   open,
   workspaces,
+  initialWorkspace = null,
   folders,
   tags,
   saving = false,
@@ -620,17 +622,17 @@ export function ManageWorkspacesDialog({
   const [query, setQuery] = useState('');
 
   const resetForm = () => {
-    setEditingId(null);
-    setName('');
-    setFolderIdPaths([]);
-    setSelectedTags([]);
-    setQuery('');
+    setEditingId(initialWorkspace?.id ?? null);
+    setName(initialWorkspace?.name ?? '');
+    setFolderIdPaths(initialWorkspace?.folderIdPaths ?? []);
+    setSelectedTags(initialWorkspace?.tags ?? []);
+    setQuery(initialWorkspace?.query ?? '');
   };
 
   useEffect(() => {
     if (!open) return;
     resetForm();
-  }, [open]);
+  }, [initialWorkspace, open]);
 
   if (!open) return null;
 
@@ -658,10 +660,27 @@ export function ManageWorkspacesDialog({
     );
   };
   const canSave = name.trim() && (folderIdPaths.length > 0 || selectedTags.length > 0 || query.trim());
+  const getWorkspaceSummary = (workspace: BookmarkWorkspace) => {
+    const folderLabels = workspace.folderIdPaths.map((path) => {
+      const key = path.join('/');
+      return folderOptions.find((folder) => folder.path.join('/') === key)?.label.trim() ?? '文件夹';
+    });
+    const parts = [
+      ...folderLabels,
+      ...workspace.tags.map((tag) => `#${tag}`),
+    ];
+    if (workspace.query) {
+      parts.push(`搜索：${workspace.query}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : '未设置条件';
+  };
 
   return (
     <DialogShell title="管理工作区" onClose={onClose}>
       <div className="space-y-4">
+        <p className="text-sm leading-6 text-stone-500">
+          工作区会把文件夹、标签和搜索词组合成一个本地入口，不会修改浏览器书签。
+        </p>
         <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
           <div className="mb-3 text-sm font-medium text-stone-800">
             {editingId ? '编辑工作区' : '新建工作区'}
@@ -765,10 +784,7 @@ export function ManageWorkspacesDialog({
             <div key={workspace.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-stone-800">{workspace.name}</div>
-                <div className="mt-0.5 text-xs text-stone-400">
-                  {workspace.folderIdPaths.length} 个文件夹 · {workspace.tags.length} 个标签
-                  {workspace.query ? ` · ${workspace.query}` : ''}
-                </div>
+                <div className="mt-0.5 line-clamp-2 text-xs leading-5 text-stone-400">{getWorkspaceSummary(workspace)}</div>
               </div>
               <div className="flex shrink-0 gap-2">
                 <button

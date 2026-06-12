@@ -66,7 +66,13 @@ import {
 import type { DeadLinkDetectionProgress, DeadLinkResult } from '../../domain/deadLinkDetection';
 import { openUrl } from '../../shared/utils';
 import { filterBookmarksByTag, getAllBookmarkTagSummaries } from '../../domain/bookmarkTags';
-import { filterBookmarksByWorkspace } from '../../domain/workspaces';
+import {
+  buildFolderLabelMap,
+  createWorkspaceInputFromFolder,
+  createWorkspaceInputFromTag,
+  filterBookmarksByWorkspace,
+  getWorkspaceSummary,
+} from '../../domain/workspaces';
 import {
   addTagsToBookmarks,
   clearBookmarkTags,
@@ -178,6 +184,7 @@ export default function App() {
   const [batchTagging, setBatchTagging] = useState(false);
   const [managingTags, setManagingTags] = useState(false);
   const [managingWorkspaces, setManagingWorkspaces] = useState(false);
+  const [workspaceDraft, setWorkspaceDraft] = useState<BookmarkWorkspaceInput | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
@@ -468,6 +475,11 @@ export default function App() {
     setNotice('工作区已删除');
   };
 
+  const handleOpenWorkspaceDraft = (draft: BookmarkWorkspaceInput | null) => {
+    setWorkspaceDraft(draft);
+    setManagingWorkspaces(true);
+  };
+
   const handleDeleteBookmark = async () => {
     if (!deletingBookmark) return;
     setActionError(null);
@@ -654,6 +666,7 @@ export default function App() {
   }, [allBookmarks]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
+  const folderLabelMap = useMemo(() => buildFolderLabelMap(folders), [folders]);
   const tagSummaries = useMemo(
     () => getAllBookmarkTagSummaries(bookmarkTags, allBookmarks),
     [allBookmarks, bookmarkTags]
@@ -709,8 +722,14 @@ export default function App() {
     includeNested: settings.bookmarkScope === 'nested',
   });
   const effectivePageSubtitle = selectedWorkspace
-    ? `工作区包含 ${displayedBookmarks.length} 个书签`
+    ? `${getWorkspaceSummary(selectedWorkspace, folderLabelMap)} · 共 ${displayedBookmarks.length} 个书签`
     : pageSubtitle;
+  const quickWorkspaceDraft = useMemo(() => {
+    if (selectedWorkspace || searchQuery || viewMode !== 'folder') return null;
+    return selectedTag
+      ? createWorkspaceInputFromTag(selectedTag)
+      : createWorkspaceInputFromFolder(selectedFolder, selectedPath);
+  }, [searchQuery, selectedFolder, selectedPath, selectedTag, selectedWorkspace, viewMode]);
 
   const handleRestoreOperationSnapshot = async (snapshot: OperationSnapshot) => {
     const plan = operationSnapshotRestorePlans.get(snapshot.id) ?? [];
@@ -840,6 +859,7 @@ export default function App() {
           setSidebarOpen(false);
         }}
         onManageWorkspaces={() => {
+          setWorkspaceDraft(null);
           setManagingWorkspaces(true);
           setSidebarOpen(false);
         }}
@@ -871,6 +891,17 @@ export default function App() {
           onOpenSidebar={() => setSidebarOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
+        {quickWorkspaceDraft && (
+          <div className="border-b border-stone-200 bg-[#F6F5F3] px-4 py-2 md:px-8">
+            <button
+              type="button"
+              onClick={() => handleOpenWorkspaceDraft(quickWorkspaceDraft)}
+              className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-600 shadow-sm transition-colors hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
+            >
+              创建工作区：{quickWorkspaceDraft.name}
+            </button>
+          </div>
+        )}
         {viewMode === 'report' && !searchQuery ? (
           <BookmarkReport
             report={report}
@@ -1010,11 +1041,13 @@ export default function App() {
       <ManageWorkspacesDialog
         open={managingWorkspaces}
         workspaces={workspaces}
+        initialWorkspace={workspaceDraft}
         folders={folders}
         tags={existingTags}
         saving={actionPending}
         onClose={() => {
           setManagingWorkspaces(false);
+          setWorkspaceDraft(null);
           setActionError(null);
         }}
         onSave={handleSaveWorkspace}

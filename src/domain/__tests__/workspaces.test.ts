@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { BookmarkItem } from '../../shared/types';
-import { filterBookmarksByWorkspace } from '../workspaces';
+import type { BookmarkItem, FolderNode } from '../../shared/types';
+import {
+  buildFolderLabelMap,
+  createWorkspaceInputFromFolder,
+  createWorkspaceInputFromTag,
+  filterBookmarksByWorkspace,
+  getWorkspaceSummary,
+} from '../workspaces';
 import type { BookmarkWorkspace } from '../../storage/workspaces';
 
 const bookmarks: BookmarkItem[] = [
@@ -57,5 +63,45 @@ describe('workspace filtering', () => {
       tags: [],
       query: 'recipes',
     })).toEqual([bookmarks[2]]);
+  });
+
+  it('creates workspace input from current folder', () => {
+    const folder: FolderNode = { id: 'dev', title: 'Dev', bookmarkCount: 1, children: [] };
+
+    expect(createWorkspaceInputFromFolder(folder, ['root', 'dev'])).toEqual({
+      name: 'Dev',
+      folderIdPaths: [['root', 'dev']],
+      tags: [],
+      query: '',
+    });
+    expect(createWorkspaceInputFromFolder(null, [])).toBeNull();
+  });
+
+  it('creates workspace input from current tag', () => {
+    expect(createWorkspaceInputFromTag('docs')).toEqual({
+      name: 'docs',
+      folderIdPaths: [],
+      tags: ['docs'],
+      query: '',
+    });
+    expect(createWorkspaceInputFromTag(null)).toBeNull();
+  });
+
+  it('builds workspace summaries with folder labels', () => {
+    const folders: FolderNode[] = [{
+      id: 'root',
+      title: 'Root',
+      bookmarkCount: 0,
+      children: [{ id: 'dev', title: 'Dev', bookmarkCount: 1, children: [] }],
+    }];
+    const labels = buildFolderLabelMap(folders);
+
+    expect(getWorkspaceSummary({
+      id: 'w3',
+      name: 'Workspace',
+      folderIdPaths: [['root', 'dev']],
+      tags: ['docs'],
+      query: 'react',
+    }, labels)).toBe('Root / Dev · #docs · 搜索：react');
   });
 });
