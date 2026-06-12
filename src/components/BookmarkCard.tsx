@@ -4,7 +4,7 @@ import { getFaviconUrl, getDuckDuckGoFaviconUrl } from '../shared/favicon';
 import type { CardDensity } from '../storage/settings';
 import { simplifyUrl, openUrl } from '../shared/utils';
 
-export type BookmarkCardAction = 'copy' | 'edit' | 'move' | 'delete';
+export type BookmarkCardAction = 'copy' | 'edit' | 'tags' | 'move' | 'delete';
 
 interface BookmarkCardProps {
   bookmark: BookmarkItem;
@@ -12,6 +12,7 @@ interface BookmarkCardProps {
   density?: CardDensity;
   selected?: boolean;
   checked?: boolean;
+  tags?: string[];
   onOpen?: (bookmark: BookmarkItem) => void;
   onAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
   onToggleSelect?: (bookmark: BookmarkItem) => void;
@@ -35,6 +36,7 @@ export function BookmarkCard({
   density = 'comfortable',
   selected = false,
   checked = false,
+  tags = [],
   onOpen,
   onAction,
   onToggleSelect,
@@ -136,6 +138,20 @@ export function BookmarkCard({
           </div>
         </div>
       </button>
+      {tags.length > 0 && (
+        <div className={`${compact ? 'mt-2' : 'mt-3'} flex flex-wrap gap-1`}>
+          {tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="max-w-full truncate rounded-full border border-stone-100 bg-stone-50 px-2 py-0.5 text-[11px] leading-4 text-stone-500">
+              {tag}
+            </span>
+          ))}
+          {tags.length > 3 && (
+            <span className="rounded-full border border-stone-100 bg-stone-50 px-2 py-0.5 text-[11px] leading-4 text-stone-400">
+              +{tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
 
       {onAction && (
         <div ref={menuRef} className="absolute right-2 top-2">
@@ -154,6 +170,7 @@ export function BookmarkCard({
             <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg" role="menu">
               <MenuItem onClick={() => handleAction('copy')}>复制链接</MenuItem>
               <MenuItem onClick={() => handleAction('edit')}>编辑</MenuItem>
+              <MenuItem onClick={() => handleAction('tags')}>标签</MenuItem>
               <MenuItem onClick={() => handleAction('move')}>移动</MenuItem>
               <MenuItem danger onClick={() => handleAction('delete')}>删除</MenuItem>
             </div>

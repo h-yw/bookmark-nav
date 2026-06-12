@@ -17,13 +17,14 @@ describe('local data import/export', () => {
       { id: '1', title: 'Alpha', url: 'https://alpha.com', count: 2, lastOpened: 100 },
     ];
 
-    expect(createBookmarkNavExportData(DEFAULT_SETTINGS, history, [], '2026-06-08T00:00:00.000Z')).toEqual({
+    expect(createBookmarkNavExportData(DEFAULT_SETTINGS, history, [], {}, '2026-06-08T00:00:00.000Z')).toEqual({
       app: 'bookmark-nav',
       version: 1,
       exportedAt: '2026-06-08T00:00:00.000Z',
       settings: DEFAULT_SETTINGS,
       history,
       operationSnapshots: [],
+      tags: {},
     });
   });
 
@@ -39,6 +40,7 @@ describe('local data import/export', () => {
       DEFAULT_SETTINGS,
       [],
       [snapshot],
+      { 1: ['dev'] },
       '2026-06-08T00:00:00.000Z'
     )).toEqual({
       app: 'bookmark-nav',
@@ -47,6 +49,7 @@ describe('local data import/export', () => {
       settings: DEFAULT_SETTINGS,
       history: [],
       operationSnapshots: [snapshot],
+      tags: { 1: ['dev'] },
     });
   });
 
@@ -79,6 +82,10 @@ describe('local data import/export', () => {
           bookmarks: [],
         },
       ],
+      tags: {
+        1: [' dev ', '', 'docs', 'dev'],
+        missing: ['old'],
+      },
     }, bookmarks);
 
     expect(result.settings).toEqual({
@@ -100,6 +107,9 @@ describe('local data import/export', () => {
         bookmarks: [bookmarks[1]],
       },
     ]);
+    expect(result.tags).toEqual({
+      1: ['dev', 'docs'],
+    });
   });
 
   it('falls back to defaults for invalid imports', () => {
@@ -107,6 +117,7 @@ describe('local data import/export', () => {
       settings: DEFAULT_SETTINGS,
       history: [],
       operationSnapshots: [],
+      tags: {},
     });
   });
 });

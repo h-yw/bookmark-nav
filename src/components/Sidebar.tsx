@@ -1,15 +1,28 @@
 import { useState } from 'react';
 import type { FolderNode } from '../shared/types';
+import type { BookmarkTagSummary } from '../domain/bookmarkTags';
 
 interface SidebarProps {
   folders: FolderNode[];
+  tags?: BookmarkTagSummary[];
   selectedPath: string[];
+  selectedTag?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onSelect: (path: string[]) => void;
+  onSelectTag?: (tag: string | null) => void;
 }
 
-export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: SidebarProps) {
+export function Sidebar({
+  folders,
+  tags = [],
+  selectedPath,
+  selectedTag = null,
+  isOpen,
+  onClose,
+  onSelect,
+  onSelectTag,
+}: SidebarProps) {
   const panel = (
     <aside aria-label="书签文件夹" className="flex h-full w-72 shrink-0 flex-col bg-[#FAFAF8] border-r border-stone-200">
       <div className="flex items-center justify-between px-4 py-4">
@@ -33,7 +46,7 @@ export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: Si
           type="button"
           onClick={() => onSelect([])}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-            selectedPath.length === 0
+            selectedPath.length === 0 && !selectedTag
               ? 'bg-white text-stone-900 font-medium shadow-sm border border-stone-200'
               : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100 border border-transparent'
           }`}
@@ -44,6 +57,39 @@ export function Sidebar({ folders, selectedPath, isOpen, onClose, onSelect }: Si
           <span className="truncate">全部书签</span>
         </button>
       </div>
+      {tags.length > 0 && (
+        <div className="border-t border-stone-200 px-3 py-3">
+          <div className="mb-2 px-1 text-xs text-stone-400">标签</div>
+          <div className="max-h-32 space-y-1 overflow-y-auto">
+            {tags.map(({ tag, count }) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => onSelectTag?.(tag)}
+                className={`flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-sm transition-colors ${
+                  selectedTag === tag
+                    ? 'border-stone-200 bg-white font-medium text-stone-900 shadow-sm'
+                    : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-700'
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate">{tag}</span>
+                <span className="rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] leading-none text-stone-400">
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+          {selectedTag && (
+            <button
+              type="button"
+              onClick={() => onSelectTag?.(null)}
+              className="mt-2 rounded-lg px-3 py-1.5 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+            >
+              清除标签筛选
+            </button>
+          )}
+        </div>
+      )}
       <nav aria-label="文件夹树" className="flex-1 overflow-y-auto px-3 pb-4">
         {folders.map((folder) => (
           <FolderItem

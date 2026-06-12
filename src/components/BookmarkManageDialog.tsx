@@ -7,6 +7,7 @@ import {
   type OperationSnapshot,
   type OperationSnapshotRestorePlan,
 } from '../storage/operationSnapshots';
+import { normalizeTagList } from '../storage/tags';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
@@ -14,6 +15,15 @@ interface EditBookmarkDialogProps {
   saving?: boolean;
   onClose: () => void;
   onSave: (input: { title: string; url: string }) => void;
+}
+
+interface EditBookmarkTagsDialogProps {
+  bookmark: BookmarkItem | null;
+  tags: string[];
+  existingTags: string[];
+  saving?: boolean;
+  onClose: () => void;
+  onSave: (tags: string[]) => void;
 }
 
 interface DeleteBookmarkDialogProps {
@@ -214,6 +224,126 @@ export function EditBookmarkDialog({ bookmark, error, saving = false, onClose, o
   );
 }
 
+export function EditBookmarkTagsDialog({
+  bookmark,
+  tags,
+  existingTags,
+  saving = false,
+  onClose,
+  onSave,
+}: EditBookmarkTagsDialogProps) {
+  const [nextTags, setNextTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    setNextTags(normalizeTagList(tags));
+    setTagInput('');
+  }, [bookmark, tags]);
+
+  if (!bookmark) return null;
+
+  const addTag = (value = tagInput) => {
+    const normalized = normalizeTagList([...nextTags, value]);
+    setNextTags(normalized);
+    setTagInput('');
+  };
+  const removeTag = (tag: string) => {
+    setNextTags((currentTags) => currentTags.filter((item) => item !== tag));
+  };
+  const availableTags = existingTags.filter((tag) => !nextTags.includes(tag));
+
+  return (
+    <DialogShell title="编辑标签" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="line-clamp-2 text-sm font-medium text-stone-800">{bookmark.title}</div>
+          <div className="mt-1 truncate text-xs text-stone-400">{bookmark.url}</div>
+        </div>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addTag();
+          }}
+        >
+          <label className="block">
+            <span className="mb-1.5 block text-sm text-stone-700">添加标签</span>
+            <div className="flex gap-2">
+              <input
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-stone-400"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={!tagInput.trim()}
+                className="rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                添加
+              </button>
+            </div>
+          </label>
+          <div className="min-h-10 rounded-lg border border-stone-200 bg-white px-3 py-2">
+            {nextTags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {nextTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => removeTag(tag)}
+                    className="rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-100"
+                    title="点击移除标签"
+                  >
+                    {tag} ×
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-stone-400">暂无标签</div>
+            )}
+          </div>
+          {availableTags.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-stone-400">已有标签</div>
+              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                {availableTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => addTag(tag)}
+                    className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs text-stone-500 transition-colors hover:border-stone-300 hover:bg-stone-50 hover:text-stone-800"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onSave(nextTags)}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
 export function DeleteBookmarkDialog({ bookmark, error, deleting = false, onClose, onConfirm }: DeleteBookmarkDialogProps) {
   if (!bookmark) return null;
 
@@ -376,7 +506,7 @@ export function ClearLocalDataDialog({ open, onClose, onConfirm }: ClearLocalDat
     <DialogShell title="清理本地数据" onClose={onClose}>
       <div className="space-y-4">
         <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
-          <div className="text-sm font-medium text-stone-800">将恢复默认设置并清空常用/最近记录</div>
+          <div className="text-sm font-medium text-stone-800">将恢复默认设置并清空常用/最近记录、标签和操作历史</div>
           <div className="mt-1 text-sm leading-6 text-stone-500">
             浏览器书签不会被删除，也不会修改书签文件夹结构。
           </div>

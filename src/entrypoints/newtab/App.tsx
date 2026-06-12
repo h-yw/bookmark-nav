@@ -22,6 +22,7 @@ import {
   DeleteBookmarkDialog,
   DeleteBookmarksDialog,
   EditBookmarkDialog,
+  EditBookmarkTagsDialog,
   MoveBookmarksDialog,
   OperationSnapshotsDialog,
   ResetSettingsDialog,
@@ -61,6 +62,14 @@ import {
 } from '../../storage/deadLinkRecords';
 import type { DeadLinkDetectionProgress, DeadLinkResult } from '../../domain/deadLinkDetection';
 import { openUrl } from '../../shared/utils';
+import { filterBookmarksByTag, getAllBookmarkTagSummaries } from '../../domain/bookmarkTags';
+import {
+  clearBookmarkTags,
+  loadBookmarkTags,
+  saveBookmarkTags,
+  setBookmarkTags,
+  type BookmarkTags,
+} from '../../storage/tags';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -101,16 +110,22 @@ function getPageSubtitle({
   searchQuery,
   viewMode,
   selectedPath,
+  selectedTag,
   count,
   includeNested,
 }: {
   searchQuery: string;
   viewMode: ViewMode;
   selectedPath: string[];
+  selectedTag: string | null;
   count: number;
   includeNested: boolean;
 }): string {
-  if (searchQuery) return `在全部文件夹中搜索“${searchQuery}”`;
+  if (searchQuery) {
+    return selectedTag
+      ? `在标签“${selectedTag}”中搜索“${searchQuery}”`
+      : `在全部文件夹中搜索“${searchQuery}”`;
+  }
   if (viewMode === 'frequent') {
     return count > 0 ? `按打开次数排序，共 ${count} 个书签` : '打开几个书签后会自动生成常用列表';
   }
@@ -120,6 +135,7 @@ function getPageSubtitle({
   if (viewMode === 'report') {
     return '本地只读分析，不会修改浏览器书签';
   }
+  if (selectedTag) return `标签“${selectedTag}”包含 ${count} 个书签`;
   if (selectedPath.length === 0) return '查看所有已保存的书签';
   return includeNested
     ? `当前文件夹及子文件夹包含 ${count} 个书签`
@@ -133,11 +149,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [history, setHistory] = useState<BookmarkUsage[]>(() => loadBookmarkHistory());
+  const [bookmarkTags, setBookmarkTagsState] = useState<BookmarkTags>(() => loadBookmarkTags());
   const [viewMode, setViewMode] = useState<ViewMode>('folder');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkItem | null>(null);
+  const [taggingBookmark, setTaggingBookmark] = useState<BookmarkItem | null>(null);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
@@ -203,10 +222,10 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    if (!actionError || editingBookmark || deletingBookmark) return;
+    if (!actionError || editingBookmark || taggingBookmark || deletingBookmark) return;
     const timer = window.setTimeout(() => setActionError(null), 2400);
     return () => window.clearTimeout(timer);
-  }, [actionError, deletingBookmark, editingBookmark]);
+  }, [actionError, deletingBookmark, editingBookmark, taggingBookmark]);
 
   useEffect(() => {
     const refreshBookmarks = () => loadBookmarks(false);
@@ -241,7 +260,7 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots());
+    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots(), bookmarkTags);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -261,6 +280,7 @@ export default function App() {
         settings: nextSettings,
         history: nextHistory,
         operationSnapshots,
+        tags,
       } = normalizeBookmarkNavImportData(parsed, allBookmarks);
 
       setSettings(nextSettings);
@@ -269,6 +289,8 @@ export default function App() {
       saveBookmarkHistory(nextHistory);
       saveOperationSnapshots(operationSnapshots);
       setOperationSnapshots(operationSnapshots);
+      saveBookmarkTags(tags);
+      setBookmarkTagsState(tags);
       setNotice('数据已导入');
     } catch {
       setActionError('导入失败，请选择有效的 JSON 文件');
@@ -281,9 +303,12 @@ export default function App() {
     setHistory([]);
     saveBookmarkHistory([]);
     clearOperationSnapshots();
+    clearBookmarkTags();
     clearDeadLinkDetectionRecord();
     setOperationSnapshots([]);
+    setBookmarkTagsState({});
     setDeadLinkRecord(null);
+    setSelectedTag(null);
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -308,8 +333,7 @@ export default function App() {
   };
 
   const handleOpenSelectedBookmark = (query: string, index: number) => {
-    const matches = query ? filterBookmarks(allBookmarks, query, history) : displayedBookmarks;
-    const selected = matches[Math.min(index, matches.length - 1)];
+    const selected = displayedBookmarks[Math.min(index, displayedBookmarks.length - 1)];
     if (!selected) return false;
     handleOpenBookmark(selected);
     return true;
@@ -331,6 +355,11 @@ export default function App() {
 
     if (action === 'edit') {
       setEditingBookmark(bookmark);
+      return;
+    }
+
+    if (action === 'tags') {
+      setTaggingBookmark(bookmark);
       return;
     }
 
@@ -356,6 +385,15 @@ export default function App() {
     } finally {
       setActionPending(false);
     }
+  };
+
+  const handleSaveBookmarkTags = (tags: string[]) => {
+    if (!taggingBookmark) return;
+    const nextTags = setBookmarkTags(bookmarkTags, taggingBookmark.id, tags);
+    setBookmarkTagsState(nextTags);
+    saveBookmarkTags(nextTags);
+    setTaggingBookmark(null);
+    setNotice(tags.length > 0 ? '标签已保存' : '标签已清空');
   };
 
   const handleDeleteBookmark = async () => {
@@ -500,28 +538,30 @@ export default function App() {
   };
 
   const displayedBookmarks = useMemo(() => {
+    const taggedBookmarks = filterBookmarksByTag(allBookmarks, bookmarkTags, selectedTag);
     if (searchQuery) {
-      return filterBookmarks(allBookmarks, searchQuery, history);
+      return filterBookmarks(taggedBookmarks, searchQuery, history);
     }
     if (viewMode === 'frequent') {
-      return getHistoryBookmarks(allBookmarks, history, 'frequent');
+      return filterBookmarksByTag(getHistoryBookmarks(allBookmarks, history, 'frequent'), bookmarkTags, selectedTag);
     }
     if (viewMode === 'recent') {
-      return getHistoryBookmarks(allBookmarks, history, 'recent');
+      return filterBookmarksByTag(getHistoryBookmarks(allBookmarks, history, 'recent'), bookmarkTags, selectedTag);
     }
     if (viewMode === 'report') {
       return [];
     }
-    return getBookmarksInFolder(
+    const folderBookmarks = getBookmarksInFolder(
       allBookmarks,
       selectedPath,
       settings.bookmarkScope === 'nested'
     );
-  }, [allBookmarks, history, selectedPath, searchQuery, settings.bookmarkScope, viewMode]);
+    return filterBookmarksByTag(folderBookmarks, bookmarkTags, selectedTag);
+  }, [allBookmarks, bookmarkTags, history, selectedPath, searchQuery, selectedTag, settings.bookmarkScope, viewMode]);
 
   useEffect(() => {
     setSelectedResultIndex(0);
-  }, [searchQuery]);
+  }, [searchQuery, selectedTag]);
 
   useEffect(() => {
     if (selectedResultIndex >= displayedBookmarks.length) {
@@ -535,6 +575,17 @@ export default function App() {
   }, [allBookmarks]);
 
   const selectedFolder = useMemo(() => getSelectedFolder(folders, selectedPath), [folders, selectedPath]);
+  const tagSummaries = useMemo(
+    () => getAllBookmarkTagSummaries(bookmarkTags, allBookmarks),
+    [allBookmarks, bookmarkTags]
+  );
+  const existingTags = useMemo(() => tagSummaries.map((summary) => summary.tag), [tagSummaries]);
+
+  useEffect(() => {
+    if (!selectedTag || tagSummaries.some((summary) => summary.tag === selectedTag)) return;
+    setSelectedTag(null);
+  }, [selectedTag, tagSummaries]);
+
   const report = useMemo(
     () => createBookmarkReport(allBookmarks, folders, history),
     [allBookmarks, folders, history]
@@ -560,11 +611,12 @@ export default function App() {
     ) ?? null,
     [operationSnapshotRestorePlans, operationSnapshots]
   );
-  const pageTitle = getPageTitle(searchQuery, viewMode, selectedFolder);
+  const pageTitle = selectedTag && !searchQuery ? `标签：${selectedTag}` : getPageTitle(searchQuery, viewMode, selectedFolder);
   const pageSubtitle = getPageSubtitle({
     searchQuery,
     viewMode,
     selectedPath,
+    selectedTag,
     count: displayedBookmarks.length,
     includeNested: settings.bookmarkScope === 'nested',
   });
@@ -662,13 +714,22 @@ export default function App() {
     <div className="flex h-screen bg-[#F6F5F3] text-stone-900">
       <Sidebar
         folders={folders}
+        tags={tagSummaries}
         selectedPath={selectedPath}
+        selectedTag={selectedTag}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelect={(path) => {
           setViewMode('folder');
           setSelectedPath(path);
+          setSelectedTag(null);
           setSearchQuery('');
+          setSidebarOpen(false);
+        }}
+        onSelectTag={(tag) => {
+          setViewMode('folder');
+          setSelectedPath([]);
+          setSelectedTag(tag);
           setSidebarOpen(false);
         }}
       />
@@ -686,6 +747,7 @@ export default function App() {
           viewMode={viewMode}
           onViewModeChange={(mode) => {
             setViewMode(mode);
+            setSelectedTag(null);
             setSearchQuery('');
             setSelectedBookmarkIds([]);
           }}
@@ -721,6 +783,7 @@ export default function App() {
             density={settings.cardDensity}
             selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
             selectedBookmarkIds={selectedBookmarkIds}
+            bookmarkTags={bookmarkTags}
             onOpenBookmark={handleOpenBookmark}
             onBookmarkAction={handleBookmarkAction}
             onToggleBookmarkSelection={handleToggleBookmarkSelection}
@@ -728,7 +791,7 @@ export default function App() {
           />
         )}
       </main>
-      {selectedBookmarks.length > 0 && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
+      {selectedBookmarks.length > 0 && !editingBookmark && !taggingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
           <span className="px-1">已选择 {selectedBookmarks.length} 个</span>
           <button
@@ -771,7 +834,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {(notice || actionError) && !editingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
+      {(notice || actionError) && !editingBookmark && !taggingBookmark && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
         <div className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2 text-sm shadow-lg ${
           actionError
             ? 'border-red-100 bg-red-50 text-red-600'
@@ -789,6 +852,17 @@ export default function App() {
           setActionError(null);
         }}
         onSave={handleSaveBookmark}
+      />
+      <EditBookmarkTagsDialog
+        bookmark={taggingBookmark}
+        tags={taggingBookmark ? bookmarkTags[taggingBookmark.id] ?? [] : []}
+        existingTags={existingTags}
+        saving={actionPending}
+        onClose={() => {
+          setTaggingBookmark(null);
+          setActionError(null);
+        }}
+        onSave={handleSaveBookmarkTags}
       />
       <DeleteBookmarkDialog
         bookmark={deletingBookmark}
