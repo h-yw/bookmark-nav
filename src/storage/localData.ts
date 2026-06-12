@@ -7,6 +7,8 @@ import type { AppSettings } from './settings';
 import { normalizeSettings } from './settings';
 import type { BookmarkTags } from './tags';
 import { normalizeBookmarkTags } from './tags';
+import type { BookmarkWorkspace } from './workspaces';
+import { normalizeBookmarkWorkspaces, pruneBookmarkWorkspaces } from './workspaces';
 
 export interface BookmarkNavExportData {
   app: 'bookmark-nav';
@@ -16,6 +18,7 @@ export interface BookmarkNavExportData {
   history: BookmarkUsage[];
   operationSnapshots: OperationSnapshot[];
   tags: BookmarkTags;
+  workspaces: BookmarkWorkspace[];
 }
 
 export interface BookmarkNavImportData {
@@ -23,6 +26,7 @@ export interface BookmarkNavImportData {
   history: BookmarkUsage[];
   operationSnapshots: OperationSnapshot[];
   tags: BookmarkTags;
+  workspaces: BookmarkWorkspace[];
 }
 
 export function createBookmarkNavExportData(
@@ -30,6 +34,7 @@ export function createBookmarkNavExportData(
   history: BookmarkUsage[],
   operationSnapshots: OperationSnapshot[] = [],
   tags: BookmarkTags = {},
+  workspaces: BookmarkWorkspace[] = [],
   exportedAt = new Date().toISOString()
 ): BookmarkNavExportData {
   return {
@@ -40,6 +45,7 @@ export function createBookmarkNavExportData(
     history,
     operationSnapshots: normalizeOperationSnapshots(operationSnapshots),
     tags: normalizeBookmarkTags(tags),
+    workspaces: normalizeBookmarkWorkspaces(workspaces),
   };
 }
 
@@ -48,7 +54,7 @@ export function normalizeBookmarkNavImportData(
   allBookmarks: BookmarkItem[]
 ): BookmarkNavImportData {
   const input = value && typeof value === 'object'
-    ? value as { settings?: unknown; history?: unknown; operationSnapshots?: unknown; tags?: unknown }
+    ? value as { settings?: unknown; history?: unknown; operationSnapshots?: unknown; tags?: unknown; workspaces?: unknown }
     : {};
 
   return {
@@ -59,5 +65,6 @@ export function normalizeBookmarkNavImportData(
     ),
     operationSnapshots: normalizeOperationSnapshots(input.operationSnapshots),
     tags: normalizeBookmarkTags(input.tags, allBookmarks),
+    workspaces: pruneBookmarkWorkspaces(normalizeBookmarkWorkspaces(input.workspaces), allBookmarks),
   };
 }

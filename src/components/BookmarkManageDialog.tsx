@@ -9,6 +9,7 @@ import {
 } from '../storage/operationSnapshots';
 import { normalizeTagList } from '../storage/tags';
 import type { BookmarkTagSummary } from '../domain/bookmarkTags';
+import type { BookmarkWorkspace, BookmarkWorkspaceInput } from '../storage/workspaces';
 
 interface EditBookmarkDialogProps {
   bookmark: BookmarkItem | null;
@@ -43,6 +44,17 @@ interface ManageTagsDialogProps {
   onClose: () => void;
   onRename: (oldTag: string, newTag: string) => void;
   onDelete: (tag: string) => void;
+}
+
+interface ManageWorkspacesDialogProps {
+  open: boolean;
+  workspaces: BookmarkWorkspace[];
+  folders: FolderNode[];
+  tags: string[];
+  saving?: boolean;
+  onClose: () => void;
+  onSave: (workspace: BookmarkWorkspaceInput) => void;
+  onDelete: (workspaceId: string) => void;
 }
 
 interface DeleteBookmarkDialogProps {
@@ -102,6 +114,7 @@ interface OperationSnapshotsDialogProps {
 interface FolderOption {
   id: string;
   label: string;
+  path: string[];
 }
 
 function DialogShell({
@@ -589,6 +602,200 @@ export function ManageTagsDialog({
   );
 }
 
+export function ManageWorkspacesDialog({
+  open,
+  workspaces,
+  folders,
+  tags,
+  saving = false,
+  onClose,
+  onSave,
+  onDelete,
+}: ManageWorkspacesDialogProps) {
+  const folderOptions = useMemo(() => flattenFolderOptions(folders), [folders]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [folderIdPaths, setFolderIdPaths] = useState<string[][]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName('');
+    setFolderIdPaths([]);
+    setSelectedTags([]);
+    setQuery('');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    resetForm();
+  }, [open]);
+
+  if (!open) return null;
+
+  const startEdit = (workspace: BookmarkWorkspace) => {
+    setEditingId(workspace.id);
+    setName(workspace.name);
+    setFolderIdPaths(workspace.folderIdPaths);
+    setSelectedTags(workspace.tags);
+    setQuery(workspace.query);
+  };
+  const toggleFolder = (folderPath: string[]) => {
+    setFolderIdPaths((currentPaths) => {
+      const key = folderPath.join('/');
+      const exists = currentPaths.some((path) => path.join('/') === key);
+      return exists
+        ? currentPaths.filter((path) => path.join('/') !== key)
+        : [...currentPaths, folderPath];
+    });
+  };
+  const toggleTag = (tag: string) => {
+    setSelectedTags((currentTags) =>
+      currentTags.includes(tag)
+        ? currentTags.filter((item) => item !== tag)
+        : [...currentTags, tag]
+    );
+  };
+  const canSave = name.trim() && (folderIdPaths.length > 0 || selectedTags.length > 0 || query.trim());
+
+  return (
+    <DialogShell title="管理工作区" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+          <div className="mb-3 text-sm font-medium text-stone-800">
+            {editingId ? '编辑工作区' : '新建工作区'}
+          </div>
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-stone-700">名称</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-stone-400"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-stone-700">搜索词</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-stone-400"
+                placeholder="可选"
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1.5 text-sm text-stone-700">文件夹</div>
+                <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-stone-200 bg-white px-2 py-2">
+                  {folderOptions.length > 0 ? folderOptions.map((folder) => {
+                    const checked = folderIdPaths.some((path) => path.join('/') === folder.path.join('/'));
+                    return (
+                      <label key={folder.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs text-stone-600 hover:bg-stone-50">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleFolder(folder.path)}
+                          className="h-3.5 w-3.5 accent-stone-800"
+                        />
+                        <span className="min-w-0 truncate">{folder.label}</span>
+                      </label>
+                    );
+                  }) : (
+                    <div className="px-2 py-1 text-xs text-stone-400">暂无文件夹</div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1.5 text-sm text-stone-700">标签</div>
+                <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-stone-200 bg-white px-2 py-2">
+                  {tags.length > 0 ? tags.map((tag) => (
+                    <label key={tag} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs text-stone-600 hover:bg-stone-50">
+                      <input
+                        type="checkbox"
+                        checked={selectedTags.includes(tag)}
+                        onChange={() => toggleTag(tag)}
+                        className="h-3.5 w-3.5 accent-stone-800"
+                      />
+                      <span className="min-w-0 truncate">{tag}</span>
+                    </label>
+                  )) : (
+                    <div className="px-2 py-1 text-xs text-stone-400">暂无标签</div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              {editingId && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={resetForm}
+                  className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                >
+                  新建
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={saving || !canSave}
+                onClick={() => {
+                  onSave({
+                    id: editingId ?? undefined,
+                    name,
+                    folderIdPaths,
+                    tags: selectedTags,
+                    query,
+                  });
+                  resetForm();
+                }}
+                className="rounded-lg bg-stone-900 px-3 py-2 text-xs text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {editingId ? '保存工作区' : '创建工作区'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="max-h-56 space-y-2 overflow-y-auto">
+          {workspaces.length === 0 ? (
+            <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-400">
+              暂无工作区
+            </div>
+          ) : workspaces.map((workspace) => (
+            <div key={workspace.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-stone-800">{workspace.name}</div>
+                <div className="mt-0.5 text-xs text-stone-400">
+                  {workspace.folderIdPaths.length} 个文件夹 · {workspace.tags.length} 个标签
+                  {workspace.query ? ` · ${workspace.query}` : ''}
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => startEdit(workspace)}
+                  className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-600 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                >
+                  编辑
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onDelete(workspace.id)}
+                  className="rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
 export function DeleteBookmarkDialog({ bookmark, error, deleting = false, onClose, onConfirm }: DeleteBookmarkDialogProps) {
   if (!bookmark) return null;
 
@@ -930,7 +1137,11 @@ function flattenFolderOptions(folders: FolderNode[], level = 0): FolderOption[] 
     {
       id: folder.id,
       label: `${'　'.repeat(level)}${folder.title}`,
+      path: [folder.id],
     },
-    ...flattenFolderOptions(folder.children, level + 1),
+    ...flattenFolderOptions(folder.children, level + 1).map((child) => ({
+      ...child,
+      path: [folder.id, ...child.path],
+    })),
   ]);
 }

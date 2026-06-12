@@ -7,7 +7,7 @@ import {
 import type { BookmarkItem } from '../../shared/types';
 
 const bookmarks: BookmarkItem[] = [
-  { id: '1', title: 'Alpha', url: 'https://alpha.com', folderPath: [], folderIdPath: [], dateAdded: 0 },
+  { id: '1', title: 'Alpha', url: 'https://alpha.com', folderPath: ['Root'], folderIdPath: ['root'], dateAdded: 0 },
   { id: '2', title: 'Beta', url: 'https://beta.com', folderPath: [], folderIdPath: [], dateAdded: 0 },
 ];
 
@@ -17,7 +17,7 @@ describe('local data import/export', () => {
       { id: '1', title: 'Alpha', url: 'https://alpha.com', count: 2, lastOpened: 100 },
     ];
 
-    expect(createBookmarkNavExportData(DEFAULT_SETTINGS, history, [], {}, '2026-06-08T00:00:00.000Z')).toEqual({
+    expect(createBookmarkNavExportData(DEFAULT_SETTINGS, history, [], {}, [], '2026-06-08T00:00:00.000Z')).toEqual({
       app: 'bookmark-nav',
       version: 1,
       exportedAt: '2026-06-08T00:00:00.000Z',
@@ -25,6 +25,7 @@ describe('local data import/export', () => {
       history,
       operationSnapshots: [],
       tags: {},
+      workspaces: [],
     });
   });
 
@@ -41,6 +42,7 @@ describe('local data import/export', () => {
       [],
       [snapshot],
       { 1: ['dev'] },
+      [{ id: 'w1', name: 'Dev', folderIdPaths: [['root']], tags: ['dev'], query: '' }],
       '2026-06-08T00:00:00.000Z'
     )).toEqual({
       app: 'bookmark-nav',
@@ -50,6 +52,7 @@ describe('local data import/export', () => {
       history: [],
       operationSnapshots: [snapshot],
       tags: { 1: ['dev'] },
+      workspaces: [{ id: 'w1', name: 'Dev', folderIdPaths: [['root']], tags: ['dev'], query: '' }],
     });
   });
 
@@ -86,6 +89,10 @@ describe('local data import/export', () => {
         1: [' dev ', '', 'docs', 'dev'],
         missing: ['old'],
       },
+      workspaces: [
+        { id: 'w1', name: ' Dev ', folderIdPaths: [['root']], tags: ['docs'], query: ' react ' },
+        { id: 'broken', name: '', folderIdPaths: [], tags: [], query: '' },
+      ],
     }, bookmarks);
 
     expect(result.settings).toEqual({
@@ -110,6 +117,9 @@ describe('local data import/export', () => {
     expect(result.tags).toEqual({
       1: ['dev', 'docs'],
     });
+    expect(result.workspaces).toEqual([
+      { id: 'w1', name: 'Dev', folderIdPaths: [['root']], tags: ['docs'], query: 'react' },
+    ]);
   });
 
   it('falls back to defaults for invalid imports', () => {
@@ -118,6 +128,7 @@ describe('local data import/export', () => {
       history: [],
       operationSnapshots: [],
       tags: {},
+      workspaces: [],
     });
   });
 });

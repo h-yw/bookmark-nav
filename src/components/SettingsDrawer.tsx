@@ -221,7 +221,7 @@ export function SettingsDrawer({
             <div className="rounded-lg border border-stone-200 bg-white px-3 py-3">
               <div className="mb-3">
                 <div className="text-sm text-stone-700">本地数据</div>
-                <div className="mt-0.5 text-xs leading-5 text-stone-400">导出或恢复设置、常用/最近记录、标签和操作历史，不包含浏览器书签树。</div>
+                <div className="mt-0.5 text-xs leading-5 text-stone-400">导出或恢复设置、常用/最近记录、标签、工作区和操作历史，不包含浏览器书签树。</div>
               </div>
               <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
                 <div>

@@ -25,6 +25,7 @@ import {
   EditBookmarkDialog,
   EditBookmarkTagsDialog,
   ManageTagsDialog,
+  ManageWorkspacesDialog,
   MoveBookmarksDialog,
   OperationSnapshotsDialog,
   ResetSettingsDialog,
@@ -65,6 +66,7 @@ import {
 import type { DeadLinkDetectionProgress, DeadLinkResult } from '../../domain/deadLinkDetection';
 import { openUrl } from '../../shared/utils';
 import { filterBookmarksByTag, getAllBookmarkTagSummaries } from '../../domain/bookmarkTags';
+import { filterBookmarksByWorkspace } from '../../domain/workspaces';
 import {
   addTagsToBookmarks,
   clearBookmarkTags,
@@ -75,6 +77,15 @@ import {
   setBookmarkTags,
   type BookmarkTags,
 } from '../../storage/tags';
+import {
+  clearBookmarkWorkspaces,
+  loadBookmarkWorkspaces,
+  removeBookmarkWorkspace,
+  saveBookmarkWorkspaces,
+  upsertBookmarkWorkspace,
+  type BookmarkWorkspace,
+  type BookmarkWorkspaceInput,
+} from '../../storage/workspaces';
 
 const SEARCH_URLS: Record<SearchEngineId, (query: string) => string> = {
   google: (query) => `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -155,8 +166,10 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [history, setHistory] = useState<BookmarkUsage[]>(() => loadBookmarkHistory());
   const [bookmarkTags, setBookmarkTagsState] = useState<BookmarkTags>(() => loadBookmarkTags());
+  const [workspaces, setWorkspaces] = useState<BookmarkWorkspace[]>(() => loadBookmarkWorkspaces());
   const [viewMode, setViewMode] = useState<ViewMode>('folder');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -164,6 +177,7 @@ export default function App() {
   const [taggingBookmark, setTaggingBookmark] = useState<BookmarkItem | null>(null);
   const [batchTagging, setBatchTagging] = useState(false);
   const [managingTags, setManagingTags] = useState(false);
+  const [managingWorkspaces, setManagingWorkspaces] = useState(false);
   const [deletingBookmark, setDeletingBookmark] = useState<BookmarkItem | null>(null);
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [batchDeletingBookmarks, setBatchDeletingBookmarks] = useState<BookmarkItem[]>([]);
@@ -229,10 +243,10 @@ export default function App() {
   }, [notice]);
 
   useEffect(() => {
-    if (!actionError || editingBookmark || taggingBookmark || batchTagging || managingTags || deletingBookmark) return;
+    if (!actionError || editingBookmark || taggingBookmark || batchTagging || managingTags || managingWorkspaces || deletingBookmark) return;
     const timer = window.setTimeout(() => setActionError(null), 2400);
     return () => window.clearTimeout(timer);
-  }, [actionError, batchTagging, deletingBookmark, editingBookmark, managingTags, taggingBookmark]);
+  }, [actionError, batchTagging, deletingBookmark, editingBookmark, managingTags, managingWorkspaces, taggingBookmark]);
 
   useEffect(() => {
     const refreshBookmarks = () => loadBookmarks(false);
@@ -267,7 +281,7 @@ export default function App() {
   };
 
   const handleExportData = () => {
-    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots(), bookmarkTags);
+    const data = createBookmarkNavExportData(settings, history, loadOperationSnapshots(), bookmarkTags, workspaces);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -288,6 +302,7 @@ export default function App() {
         history: nextHistory,
         operationSnapshots,
         tags,
+        workspaces: importedWorkspaces,
       } = normalizeBookmarkNavImportData(parsed, allBookmarks);
 
       setSettings(nextSettings);
@@ -298,6 +313,8 @@ export default function App() {
       setOperationSnapshots(operationSnapshots);
       saveBookmarkTags(tags);
       setBookmarkTagsState(tags);
+      saveBookmarkWorkspaces(importedWorkspaces);
+      setWorkspaces(importedWorkspaces);
       setNotice('数据已导入');
     } catch {
       setActionError('导入失败，请选择有效的 JSON 文件');
@@ -311,11 +328,14 @@ export default function App() {
     saveBookmarkHistory([]);
     clearOperationSnapshots();
     clearBookmarkTags();
+    clearBookmarkWorkspaces();
     clearDeadLinkDetectionRecord();
     setOperationSnapshots([]);
     setBookmarkTagsState({});
+    setWorkspaces([]);
     setDeadLinkRecord(null);
     setSelectedTag(null);
+    setSelectedWorkspaceId(null);
     setViewMode('folder');
     setClearingLocalData(false);
     setNotice('本地数据已清理');
@@ -427,6 +447,25 @@ export default function App() {
     saveBookmarkTags(nextTags);
     setSelectedTag((currentTag) => currentTag === tag ? null : currentTag);
     setNotice('标签已删除');
+  };
+
+  const handleSaveWorkspace = (workspace: BookmarkWorkspaceInput) => {
+    try {
+      const nextWorkspaces = upsertBookmarkWorkspace(workspaces, workspace);
+      setWorkspaces(nextWorkspaces);
+      saveBookmarkWorkspaces(nextWorkspaces);
+      setNotice(workspace.id ? '工作区已更新' : '工作区已创建');
+    } catch {
+      setActionError('工作区至少需要名称和一个条件');
+    }
+  };
+
+  const handleDeleteWorkspace = (workspaceId: string) => {
+    const nextWorkspaces = removeBookmarkWorkspace(workspaces, workspaceId);
+    setWorkspaces(nextWorkspaces);
+    saveBookmarkWorkspaces(nextWorkspaces);
+    setSelectedWorkspaceId((currentId) => currentId === workspaceId ? null : currentId);
+    setNotice('工作区已删除');
   };
 
   const handleDeleteBookmark = async () => {
@@ -570,7 +609,14 @@ export default function App() {
     saveDeadLinkDetectionRecord(record);
   };
 
+  const selectedWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null,
+    [selectedWorkspaceId, workspaces]
+  );
   const displayedBookmarks = useMemo(() => {
+    if (selectedWorkspace) {
+      return filterBookmarksByWorkspace(allBookmarks, bookmarkTags, selectedWorkspace, searchQuery);
+    }
     const taggedBookmarks = filterBookmarksByTag(allBookmarks, bookmarkTags, selectedTag);
     if (searchQuery) {
       return filterBookmarks(taggedBookmarks, searchQuery, history);
@@ -590,11 +636,11 @@ export default function App() {
       settings.bookmarkScope === 'nested'
     );
     return filterBookmarksByTag(folderBookmarks, bookmarkTags, selectedTag);
-  }, [allBookmarks, bookmarkTags, history, selectedPath, searchQuery, selectedTag, settings.bookmarkScope, viewMode]);
+  }, [allBookmarks, bookmarkTags, history, searchQuery, selectedPath, selectedTag, selectedWorkspace, settings.bookmarkScope, viewMode]);
 
   useEffect(() => {
     setSelectedResultIndex(0);
-  }, [searchQuery, selectedTag]);
+  }, [searchQuery, selectedTag, selectedWorkspaceId]);
 
   useEffect(() => {
     if (selectedResultIndex >= displayedBookmarks.length) {
@@ -618,6 +664,11 @@ export default function App() {
     if (!selectedTag || tagSummaries.some((summary) => summary.tag === selectedTag)) return;
     setSelectedTag(null);
   }, [selectedTag, tagSummaries]);
+
+  useEffect(() => {
+    if (!selectedWorkspaceId || workspaces.some((workspace) => workspace.id === selectedWorkspaceId)) return;
+    setSelectedWorkspaceId(null);
+  }, [selectedWorkspaceId, workspaces]);
 
   const report = useMemo(
     () => createBookmarkReport(allBookmarks, folders, history),
@@ -644,7 +695,11 @@ export default function App() {
     ) ?? null,
     [operationSnapshotRestorePlans, operationSnapshots]
   );
-  const pageTitle = selectedTag && !searchQuery ? `标签：${selectedTag}` : getPageTitle(searchQuery, viewMode, selectedFolder);
+  const pageTitle = selectedWorkspace && !searchQuery
+    ? `工作区：${selectedWorkspace.name}`
+    : selectedTag && !searchQuery
+      ? `标签：${selectedTag}`
+      : getPageTitle(searchQuery, viewMode, selectedFolder);
   const pageSubtitle = getPageSubtitle({
     searchQuery,
     viewMode,
@@ -653,6 +708,9 @@ export default function App() {
     count: displayedBookmarks.length,
     includeNested: settings.bookmarkScope === 'nested',
   });
+  const effectivePageSubtitle = selectedWorkspace
+    ? `工作区包含 ${displayedBookmarks.length} 个书签`
+    : pageSubtitle;
 
   const handleRestoreOperationSnapshot = async (snapshot: OperationSnapshot) => {
     const plan = operationSnapshotRestorePlans.get(snapshot.id) ?? [];
@@ -748,14 +806,17 @@ export default function App() {
       <Sidebar
         folders={folders}
         tags={tagSummaries}
+        workspaces={workspaces}
         selectedPath={selectedPath}
         selectedTag={selectedTag}
+        selectedWorkspaceId={selectedWorkspaceId}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelect={(path) => {
           setViewMode('folder');
           setSelectedPath(path);
           setSelectedTag(null);
+          setSelectedWorkspaceId(null);
           setSearchQuery('');
           setSidebarOpen(false);
         }}
@@ -763,10 +824,23 @@ export default function App() {
           setViewMode('folder');
           setSelectedPath([]);
           setSelectedTag(tag);
+          setSelectedWorkspaceId(null);
           setSidebarOpen(false);
         }}
         onManageTags={() => {
           setManagingTags(true);
+          setSidebarOpen(false);
+        }}
+        onSelectWorkspace={(workspaceId) => {
+          setViewMode('folder');
+          setSelectedPath([]);
+          setSelectedTag(null);
+          setSelectedWorkspaceId(workspaceId);
+          setSearchQuery('');
+          setSidebarOpen(false);
+        }}
+        onManageWorkspaces={() => {
+          setManagingWorkspaces(true);
           setSidebarOpen(false);
         }}
       />
@@ -779,12 +853,13 @@ export default function App() {
           selectedIndex={selectedResultIndex}
           onSelectedIndexChange={setSelectedResultIndex}
           title={pageTitle}
-          subtitle={pageSubtitle}
+          subtitle={effectivePageSubtitle}
           totalCount={allBookmarks.length}
           viewMode={viewMode}
           onViewModeChange={(mode) => {
             setViewMode(mode);
             setSelectedTag(null);
+            setSelectedWorkspaceId(null);
             setSearchQuery('');
             setSelectedBookmarkIds([]);
           }}
@@ -827,7 +902,7 @@ export default function App() {
           />
         )}
       </main>
-      {selectedBookmarks.length > 0 && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
+      {selectedBookmarks.length > 0 && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !managingWorkspaces && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && (
         <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 shadow-lg">
           <span className="px-1">已选择 {selectedBookmarks.length} 个</span>
           <button
@@ -880,7 +955,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {(notice || actionError) && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
+      {(notice || actionError) && !editingBookmark && !taggingBookmark && !batchTagging && !managingTags && !managingWorkspaces && !deletingBookmark && !batchDeleting && movingBookmarks.length === 0 && selectedBookmarks.length === 0 && (
         <div className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2 text-sm shadow-lg ${
           actionError
             ? 'border-red-100 bg-red-50 text-red-600'
@@ -931,6 +1006,19 @@ export default function App() {
         }}
         onRename={handleRenameTag}
         onDelete={handleDeleteTag}
+      />
+      <ManageWorkspacesDialog
+        open={managingWorkspaces}
+        workspaces={workspaces}
+        folders={folders}
+        tags={existingTags}
+        saving={actionPending}
+        onClose={() => {
+          setManagingWorkspaces(false);
+          setActionError(null);
+        }}
+        onSave={handleSaveWorkspace}
+        onDelete={handleDeleteWorkspace}
       />
       <DeleteBookmarkDialog
         bookmark={deletingBookmark}

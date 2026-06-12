@@ -1,29 +1,38 @@
 import { useState } from 'react';
 import type { FolderNode } from '../shared/types';
 import type { BookmarkTagSummary } from '../domain/bookmarkTags';
+import type { BookmarkWorkspace } from '../storage/workspaces';
 
 interface SidebarProps {
   folders: FolderNode[];
   tags?: BookmarkTagSummary[];
+  workspaces?: BookmarkWorkspace[];
   selectedPath: string[];
   selectedTag?: string | null;
+  selectedWorkspaceId?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onSelect: (path: string[]) => void;
   onSelectTag?: (tag: string | null) => void;
   onManageTags?: () => void;
+  onSelectWorkspace?: (workspaceId: string) => void;
+  onManageWorkspaces?: () => void;
 }
 
 export function Sidebar({
   folders,
   tags = [],
+  workspaces = [],
   selectedPath,
   selectedTag = null,
+  selectedWorkspaceId = null,
   isOpen,
   onClose,
   onSelect,
   onSelectTag,
   onManageTags,
+  onSelectWorkspace,
+  onManageWorkspaces,
 }: SidebarProps) {
   const panel = (
     <aside aria-label="书签文件夹" className="flex h-full w-72 shrink-0 flex-col bg-[#FAFAF8] border-r border-stone-200">
@@ -48,7 +57,7 @@ export function Sidebar({
           type="button"
           onClick={() => onSelect([])}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-            selectedPath.length === 0 && !selectedTag
+            selectedPath.length === 0 && !selectedTag && !selectedWorkspaceId
               ? 'bg-white text-stone-900 font-medium shadow-sm border border-stone-200'
               : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100 border border-transparent'
           }`}
@@ -58,6 +67,42 @@ export function Sidebar({
           </svg>
           <span className="truncate">全部书签</span>
         </button>
+      </div>
+      <div className="border-t border-stone-200 px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+          <div className="text-xs text-stone-400">工作区</div>
+          {onManageWorkspaces && (
+            <button
+              type="button"
+              onClick={onManageWorkspaces}
+              className="rounded-md px-1.5 py-1 text-xs text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-700"
+            >
+              管理
+            </button>
+          )}
+        </div>
+        {workspaces.length > 0 ? (
+          <div className="max-h-32 space-y-1 overflow-y-auto">
+            {workspaces.map((workspace) => (
+              <button
+                key={workspace.id}
+                type="button"
+                onClick={() => onSelectWorkspace?.(workspace.id)}
+                className={`flex w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-left text-sm transition-colors ${
+                  selectedWorkspaceId === workspace.id
+                    ? 'border-stone-200 bg-white font-medium text-stone-900 shadow-sm'
+                    : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-700'
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-transparent px-3 py-1.5 text-xs text-stone-400">
+            暂无工作区
+          </div>
+        )}
       </div>
       {tags.length > 0 && (
         <div className="border-t border-stone-200 px-3 py-3">
