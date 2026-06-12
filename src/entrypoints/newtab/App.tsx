@@ -783,7 +783,6 @@ export default function App() {
             density={settings.cardDensity}
             selectedBookmarkId={searchQuery ? displayedBookmarks[selectedResultIndex]?.id ?? null : null}
             selectedBookmarkIds={selectedBookmarkIds}
-            bookmarkTags={bookmarkTags}
             onOpenBookmark={handleOpenBookmark}
             onBookmarkAction={handleBookmarkAction}
             onToggleBookmarkSelection={handleToggleBookmarkSelection}

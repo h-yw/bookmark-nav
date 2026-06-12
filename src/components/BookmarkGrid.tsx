@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import type { BookmarkItem } from '../shared/types';
 import { BookmarkCard, type BookmarkCardAction } from './BookmarkCard';
 import type { CardDensity } from '../storage/settings';
-import type { BookmarkTags } from '../storage/tags';
 
 interface BookmarkGridProps {
   bookmarks: BookmarkItem[];
@@ -13,7 +12,6 @@ interface BookmarkGridProps {
   density?: CardDensity;
   selectedBookmarkId?: string | null;
   selectedBookmarkIds?: string[];
-  bookmarkTags?: BookmarkTags;
   onOpenBookmark?: (bookmark: BookmarkItem) => void;
   onBookmarkAction?: (action: BookmarkCardAction, bookmark: BookmarkItem) => void;
   onToggleBookmarkSelection?: (bookmark: BookmarkItem) => void;
@@ -79,7 +77,6 @@ export function BookmarkGrid({
   density = 'comfortable',
   selectedBookmarkId = null,
   selectedBookmarkIds = [],
-  bookmarkTags = {},
   onOpenBookmark,
   onBookmarkAction,
   onToggleBookmarkSelection,
@@ -125,7 +122,6 @@ export function BookmarkGrid({
             density={density}
             selected={selectedBookmarkId === b.id}
             checked={selectedIds.has(b.id)}
-            tags={bookmarkTags[b.id] ?? []}
             onOpen={onOpenBookmark}
             onAction={onBookmarkAction}
             onToggleSelect={onToggleBookmarkSelection}
