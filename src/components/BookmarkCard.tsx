@@ -144,11 +144,9 @@ export function BookmarkCard({
             aria-label="打开书签操作菜单"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-stone-400 opacity-100 transition-colors hover:bg-stone-100 hover:text-stone-700 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70 sm:opacity-0 sm:group-hover:opacity-100"
+            className="flex h-7 w-7 items-center text-sm justify-center rounded-md text-stone-400 opacity-100 transition-colors hover:bg-stone-100 hover:text-stone-700 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/70 sm:opacity-0 sm:group-hover:opacity-100"
           >
-            <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.75h.008v.008H12V6.75Zm0 5.25h.008v.008H12V12Zm0 5.25h.008v.008H12v-.008Z" />
-            </svg>
+            <svg stroke="currentColor" fill="none" stroke-width="0" viewBox="0 0 15 15" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 11.375C8.12132 11.375 8.625 11.8787 8.625 12.5C8.625 13.1213 8.12132 13.625 7.5 13.625C6.87868 13.625 6.375 13.1213 6.375 12.5C6.375 11.8787 6.87868 11.375 7.5 11.375ZM7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375ZM7.5 1.375C8.12132 1.375 8.625 1.87868 8.625 2.5C8.625 3.12132 8.12132 3.625 7.5 3.625C6.87868 3.625 6.375 3.12132 6.375 2.5C6.375 1.87868 6.87868 1.375 7.5 1.375Z" fill="currentColor"></path></svg>
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg" role="menu">
